@@ -18,6 +18,7 @@ const customerRouter = require("./routes/customer.routes")
 const findByAccountRounter = require("./routes/findByAccount.routes")
 const TransactionRoute = require("./routes/transaction.routes")
 const balanceRouter = require("./routes/balance.routes")
+const cashSummaryRoutes = require("./routes/Cashier.summary.route");
 
 
 
@@ -75,6 +76,8 @@ app.use("/api/customers",customerRouter)
 app.use("/api/find-by-account",findByAccountRounter)
 app.use("/api/transaction",TransactionRoute)
 app.use("/api/balance",balanceRouter)
+app.use("/api/cash-summary", cashSummaryRoutes);
+
 
 
 
