@@ -16,6 +16,7 @@ const EmpNewAccount = lazy(()=>import('../components/Employee/EmpNewAccount'))
 const AdminTransaction = lazy(()=>import('../components/Admin/Transaction'))
 const CustomerDashboard = lazy(()=>import('../components/Customer/index'))
 const CustomerTransaction = lazy(()=>import('../components/Customer/Transaction/index'))
+const AdminProperty = lazy(()=>import('../components/Admin/MyMoney/index'))
 const PageNotFound = lazy(()=>import("../components/PageNotFound"))
 
 
@@ -37,6 +38,7 @@ const App = () => {
           <Route path='currency' element={<Currency />} />
           <Route path='new-account' element={<AdminNewAccount />} />
           <Route path='new-transaction' element={<AdminTransaction />} />
+          <Route path='property' element={<AdminProperty />} />
           <Route path='*' element={<PageNotFound />} />
         </Route>
         {/* End admin related routes */}

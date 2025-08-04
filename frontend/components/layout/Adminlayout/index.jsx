@@ -11,6 +11,7 @@ import {
     DollarCircleOutlined,
     LogoutOutlined,
     UserAddOutlined,
+    PropertySafetyFilled,
 } from '@ant-design/icons';
 import { Button, Layout, Menu, theme } from 'antd';
 import {Link, useLocation, useNavigate} from "react-router-dom";
@@ -46,6 +47,11 @@ const Adminlayout = ({ children }) => {
             key: '/admin/branch',
             icon: <BranchesOutlined />,
             label: <Link to="/admin/branch">Branch</Link>,
+        },
+        {
+            key: '/admin/property',
+            icon: <PropertySafetyFilled />,
+            label: <Link to="/admin/property">My Property</Link>,
         },
         {
             key: '/admin/currency',

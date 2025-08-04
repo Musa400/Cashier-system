@@ -1,172 +1,212 @@
-import { Card, Button, Divider, message } from "antd";
-import {
-    DollarOutlined,
-    ArrowUpOutlined,
+import React, { useEffect, useState } from 'react';
+import { Card, message, Typography, Row, Col, Spin } from 'antd';
+import { 
+    DollarOutlined, 
+    ArrowUpOutlined, 
     ArrowDownOutlined,
-    WalletOutlined,
     LoadingOutlined
-} from "@ant-design/icons";
-import { useEffect, useState } from 'react';
+} from '@ant-design/icons';
 import { http } from '../../../modules/modules';
 
-const Dashboard = ({ data }) => {
+const { Title } = Typography;
+
+const getCurrencySymbol = (currency) => {
+    switch (currency) {
+        case 'USD':
+            return '$';
+        case 'EUR':
+            return '€';
+        case 'GBP':
+            return '£';
+        default:
+            return '$';
+    }
+};
+
+const Dashboard = () => {
     const [currencyData, setCurrencyData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
 
-    // Fetch active currencies and their balances
+    // Fetch currency data with balances
     useEffect(() => {
-        const fetchCurrencyData = async () => {
+        const fetchData = async () => {
             try {
                 setLoading(true);
                 const httpReq = http();
-                
-                // Fetch all active currencies
                 const { data: currencies } = await httpReq.get("/api/currency");
                 
-                // For each currency, fetch the balance data
-                const currencyBalances = await Promise.all(
+                // Fetch balance for each currency
+                const balances = await Promise.all(
                     currencies.data.map(async (currency) => {
                         try {
-                            // Use the new balance endpoint
-                            const { data: balanceData } = await httpReq.get(`/api/balance?currency=${encodeURIComponent(currency.currencyName)}`);
+                            const { data } = await httpReq.get(
+                                `/api/balance?currency=${encodeURIComponent(currency.currencyName)}`
+                            );
                             return {
                                 currency: currency.currencyName,
-                                total: balanceData?.total || 0,
-                                peopleOweMe: balanceData?.peopleOweMe || 0,
-                                iOwePeople: balanceData?.iOwePeople || 0,
+                                symbol: currency.symbol || '$',
+                                ...data
                             };
                         } catch (error) {
                             console.error(`Error fetching balance for ${currency.currencyName}:`, error);
                             return {
                                 currency: currency.currencyName,
+                                symbol: currency.symbol || '$',
                                 total: 0,
                                 peopleOweMe: 0,
-                                iOwePeople: 0,
+                                iOwePeople: 0
                             };
                         }
                     })
                 );
-
-                setCurrencyData(currencyBalances);
+                
+                setCurrencyData(balances);
             } catch (error) {
-                console.error('Error fetching currency data:', error);
-                messageApi.error('Failed to load currency data');
+                console.error('Error fetching data:', error);
+                messageApi.error('Failed to load data');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchCurrencyData();
+        fetchData();
     }, []);
 
-    // Helper function to get currency symbol
-    const getCurrencySymbol = (currency) => {
-        const symbols = {
-            'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥',
-            'CNY': '¥', 'INR': '₹', 'AFN': '؋', 'PKR': '₨',
-            'SAR': '﷼', 'AED': 'د.إ', 'CAD': 'C$', 'AUD': 'A$',
-            'CHF': 'CHF', 'TRY': '₺', 'RUB': '₽', 'BRL': 'R$',
-            'MXN': 'Mex$', 'NGN': '₦', 'ZAR': 'R', 'KRW': '₩',
-            'HKD': 'HK$', 'MYR': 'RM', 'SGD': 'S$', 'THB': '฿',
-            'EGP': 'E£', 'ILS': '₪', 'KWD': 'KD', 'QAR': 'QR',
-            'OMR': 'OMR', 'MKD': 'ден'
+    // Process currency data
+    const processCurrencyData = () => {
+        let totalPeopleOweMe = 0;
+        let totalIOwePeople = 0;
+        const processedData = [];
+        
+        // First pass: calculate totals and process data
+        currencyData.forEach(currency => {
+            const peopleOweMe = Math.abs(currency.peopleOweMe || 0);
+            const iOwePeople = Math.abs(currency.iOwePeople || 0);
+            
+            totalPeopleOweMe += peopleOweMe;
+            totalIOwePeople += iOwePeople;
+            
+            if (peopleOweMe > 0 || iOwePeople > 0) {
+                processedData.push({
+                    ...currency,
+                    peopleOweMe,
+                    iOwePeople
+                });
+            }
+        });
+        
+        // Get primary currency symbol
+        const primaryCurrency = currencyData[0]?.currency || 'USD';
+        const primarySymbol = getCurrencySymbol(primaryCurrency);
+        
+        return {
+            processedData,
+            totalPeopleOweMe: `${primarySymbol} ${totalPeopleOweMe.toFixed(2)}`,
+            totalIOwePeople: `${primarySymbol} ${totalIOwePeople.toFixed(2)}`,
+            hasPeopleOweMe: totalPeopleOweMe > 0,
+            hasIOwePeople: totalIOwePeople > 0
         };
-        return symbols[currency] || currency;
     };
+
+    const { 
+        processedData,
+        totalPeopleOweMe, 
+        totalIOwePeople, 
+        hasPeopleOweMe, 
+        hasIOwePeople 
+    } = processCurrencyData();
 
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <LoadingOutlined style={{ fontSize: 48 }} />
+                <Spin size="large" />
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {contextHolder}
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Currency Balances</h1>
-            {/* Currency Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                {currencyData.length > 0 ? (
-                    currencyData.map((currencyItem) => {
-                        const { currency, total, peopleOweMe, iOwePeople } = currencyItem;
-                        const symbol = getCurrencySymbol(currency);
-                        const title = `Balance Summary - ${currency}`;
-                        
-                        return (
-                            <Card 
-                                key={currency} 
-                                className="shadow-lg hover:shadow-xl transition-shadow"
-                                title={
-                                    <div className="flex items-center">
-                                        <WalletOutlined className="mr-2 text-blue-500" />
-                                        <span>{title}</span>
-                                    </div>
-                                }
-                                headStyle={{ borderBottom: '1px solid #f0f0f0' }}
-                            >
-                                {/* Total */}
-                                <div className="mb-4">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-gray-600">Total Balance</span>
-                                        {/* <span className={`text-base font-semibold ${
-                                            total >= 0 ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                            {symbol} {Math.abs(total).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </span> */}
-                                        <span className={`text-base font-semibold ${
-                                            total >= 0 ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                           {symbol} {iOwePeople.toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </span>
-                                    </div>
-                                </div>
+        <div className="container mx-auto px-4 py-6">
+            <Title level={2} className="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</Title>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* People Owe Me Card */}
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:shadow-xl">
+                    <div className="p-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="text-gray-500 text-sm font-medium uppercase tracking-wider">خلک ما  پوروړي دي</h3>
                                 
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* People Owe Me */}
-                                    <div className="bg-green-50 p-3 rounded-lg">
-                                        <div className="flex items-center text-green-600 text-sm mb-1">
-                                            <ArrowDownOutlined className="mr-1" />
-                                            <span>People Owe Me</span>
-                                        </div>
-                                        <div className="font-semibold text-green-700">
-                                            {symbol} {peopleOweMe.toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </div>
+                            </div>
+                            <div className="bg-green-100 p-3 rounded-full">
+                                <ArrowDownOutlined className="text-green-600 text-xl" />
+                            </div>
+                        </div>
+                        
+                        <div className="mt-6 pt-4 border-t border-gray-100">
+                            <h4 className="text-gray-500 text-sm font-medium mb-3">By Currency</h4>
+                            <div className="space-y-2">
+                                {processedData
+                                    .filter(item => item.peopleOweMe > 0)
+                                    .map((item, index) => {
+                                        const symbol = getCurrencySymbol(item.currency);
+                                        return (
+                                            <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                                                <span className="text-gray-600">{item.currency}</span>
+                                                <span className="font-medium text-gray-800">
+                                                     {item.peopleOweMe.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                {!hasPeopleOweMe && (
+                                    <div className="text-center py-4 text-gray-400">
+                                        No amounts owed to you
                                     </div>
-                                    
-                                    {/* I Owe People */}
-                                    <div className="bg-red-50 p-3 rounded-lg">
-                                        <div className="flex items-center text-red-600 text-sm mb-1">
-                                            <ArrowUpOutlined className="mr-1" />
-                                            <span>I Owe People</span>
-                                        </div>
-                                        <div className="font-semibold text-red-700">
-                                            {symbol} {iOwePeople.toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        );
-                    })
-                ) : (
-                    <div className="col-span-full text-center py-8">
-                        <p className="text-gray-500">No currencies found. Please add currencies from the admin panel.</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                )}
+                </div>
+
+                {/* I Owe People Card */}
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:shadow-xl">
+                    <div className="p-6">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="text-gray-500 text-sm font-medium uppercase tracking-wider">زه د خلکو  پوروړی یم</h3>
+                                
+                            </div>
+                            <div className="bg-red-100 p-3 rounded-full">
+                                <ArrowUpOutlined className="text-red-600 text-xl" />
+                            </div>
+                        </div>
+                        
+                        <div className="mt-6 pt-4 border-t border-gray-100">
+                            <h4 className="text-gray-500 text-sm font-medium mb-3">By Currency</h4>
+                            <div className="space-y-2">
+                                {processedData
+                                    .filter(item => item.iOwePeople > 0)
+                                    .map((item, index) => {
+                                        const symbol = getCurrencySymbol(item.currency);
+                                        return (
+                                            <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                                                <span className="text-gray-600">{item.currency}</span>
+                                                <span className="font-medium text-gray-800">
+                                                     {item.iOwePeople.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                {!hasIOwePeople && (
+                                    <div className="text-center py-4 text-gray-400">
+                                        No amounts you owe
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

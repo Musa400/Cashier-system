@@ -197,6 +197,73 @@ const getPaginatedTransactions = async (req,res,schema) => {
     res.status(500).json({ message: "Error fetching transactions", error });
   }
 };
+
+const getDashboardStats = async (req, res, transactionSchema, customerSchema) => {
+    try {
+        // Get transaction summary
+        const [transactionSummary, customerCount] = await Promise.all([
+            // Get transaction stats
+            transactionSchema.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalCredit: {
+                            $sum: {
+                                $cond: [{$eq: ["$transactionType", "cr"]}, "$transactionAmount", 0]
+                            }
+                        },
+                        totalDebit: {
+                            $sum: {
+                                $cond: [{$eq: ["$transactionType", "dr"]}, "$transactionAmount", 0]
+                            }
+                        },
+                        totalTransactions: {$sum: 1}
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        totalCredit: 1,
+                        totalDebit: 1,
+                        totalTransactions: 1,
+                        totalAmount: {$subtract: ["$totalCredit", "$totalDebit"]}
+                    }
+                }
+            ]).exec(),
+            
+            // Get total customer count
+            customerSchema.countDocuments({})
+        ]);
+
+        // Extract results
+        const stats = transactionSummary[0] || {
+            totalCredit: 0,
+            totalDebit: 0,
+            totalTransactions: 0,
+            totalAmount: 0
+        };
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalTransactions: stats.totalTransactions,
+                totalAmount: stats.totalAmount,
+                totalCredit: stats.totalCredit,
+                totalDebit: stats.totalDebit,
+                totalCustomers: customerCount
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching dashboard statistics',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createData,
     getData,
@@ -204,5 +271,6 @@ module.exports = {
     deleteData,
     findByAccountNo,
     getTransactionSummary,
-    getPaginatedTransactions
+    getPaginatedTransactions,
+    getDashboardStats
 }

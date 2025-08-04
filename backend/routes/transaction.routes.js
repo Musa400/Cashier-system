@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const controller  = require("../controller/controller");
-
+const Customer = require("../model/customer.model");
 const transactionSchema  = require("../model/transactionmodel");
 
 router.get('/',(req,res)=>{
@@ -13,6 +13,9 @@ router.get('/summary',(req,res)=>{
 router.get('/pagination',(req,res)=>{
     controller.getPaginatedTransactions(req,res,transactionSchema)
 })
+router.get('/dashboard-stats', (req, res) => {
+    controller.getDashboardStats(req, res, transactionSchema, Customer);
+});
 router.post('/',(req,res)=>{
     controller.createData(req,res,transactionSchema)
 })
