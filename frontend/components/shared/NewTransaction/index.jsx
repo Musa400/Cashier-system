@@ -1,68 +1,95 @@
 import React, { useState } from 'react'
 import { Button, Card, Empty, Form, Image, Input, message, Select } from "antd"
 import { SearchOutlined } from "@ant-design/icons"
-import {http, trimData} from "../../../modules/modules"
-const NewTransaction = () => {
-    //get user Info from session stroage
-    const userInfo = JSON.parse(sessionStorage.getItem("userInfo"));
+import { http, trimData } from "../../../modules/modules"
 
-    //from Info
+const { Option } = Select;
+
+const NewTransaction = () => {
+    const userInfo = JSON.parse(sessionStorage.getItem("userInfo"));
     const [transactionForm] = Form.useForm()
     const [messageApi, contextHolder] = message.useMessage();
 
-    //state collection
     const [accountNo, setAccountNo] = useState(null);
     const [accountDetail, setAccountDetail] = useState(null);
 
+    // Selected currency for transaction
+    const [selectedCurrency, setSelectedCurrency] = useState(null);
 
     const onFinish = async (values) => {
         try {
             const finalObj = trimData(values);
-            let balance = 0
-            if(finalObj.transactionType === "cr"){
-                balance = Number(accountDetail.finalBalance) + Number(finalObj.transactionAmount)
-            }
-            else if(finalObj.transactionType === "dr"){
-                balance = Number(accountDetail.finalBalance) - Number(finalObj.transactionAmount)
+            const httpReq = http();
+
+            // Find the current balance for the selected currency
+            const currentBalanceObj = accountDetail.balances?.find(
+                (b) => b.currency === values.currency
+            ) || { currency: values.currency, balance: 0 };
+
+            let updatedBalance = Number(currentBalanceObj.balance) || 0;
+            
+            // Update balance based on transaction type
+            if (values.transactionType === "cr") {
+                updatedBalance += Number(values.transactionAmount);
+            } else if (values.transactionType === "dr") {
+                updatedBalance -= Number(values.transactionAmount);
             }
 
-           finalObj.currentBalance = accountDetail.finalBalance;
-           finalObj.customerId = accountDetail._id;
-           finalObj.accountNo = accountDetail.accountNo;
-           finalObj.branch = userInfo.branch;
-           const httpReq = http();
-            await httpReq.post("/api/transaction",finalObj)
-            await httpReq.put(`/api/customers/${accountDetail._id}`,{finalBalance:balance})
-            messageApi.success("Transaction Created Successfully !")
+            // Prepare transaction data
+            finalObj.currentBalance = updatedBalance;
+            finalObj.customerId = accountDetail._id;
+            finalObj.accountNo = accountDetail.accountNo;
+            finalObj.branch = userInfo.branch;
+
+            // Create transaction
+            await httpReq.post("/api/transaction", finalObj);
+
+            // Update customer's balances array
+            const updatedBalances = accountDetail.balances?.length 
+                ? accountDetail.balances.map(b => 
+                    b.currency === values.currency 
+                        ? { ...b, balance: updatedBalance } 
+                        : b
+                  )
+                : [{ currency: values.currency, balance: updatedBalance }];
+
+            // Update customer with new balances
+            await httpReq.put(`/api/customers/${accountDetail._id}`, { 
+                balances: updatedBalances 
+            });
+
+            messageApi.success("Transaction Created Successfully!")
             transactionForm.resetFields();
-            setAccountDetail(null)
-
-            
+            setAccountDetail(null);
+            setSelectedCurrency(null);
         } catch (error) {
-            messageApi.error("Unable to process Transaction !")
-            
+            console.error("Transaction error:", error);
+            messageApi.error("Unable to process Transaction!")
         }
     }
 
-    const searchByAccountNo = async () =>{
+    const searchByAccountNo = async () => {
         try {
             const obj = {
                 accountNo,
-                branch : userInfo?.branch
+                branch: userInfo?.branch
             }
             const httpReq = http();
-            const {data} = await httpReq.post(`/api/find-by-account`,obj);
-            if (data?.data){
-                setAccountDetail(data?.data)
-            } else{
+            const { data } = await httpReq.post(`/api/find-by-account`, obj);
+            if (data?.data) {
+                setAccountDetail(data.data)
+                // If customer has multiple currencies, reset selectedCurrency to null
+                setSelectedCurrency(null)
+            } else {
                 messageApi.warning("There is no record of this account");
                 setAccountDetail(null)
+                setSelectedCurrency(null)
             }
-            
         } catch (error) {
-            messageApi.error("unable to find account details")
+            messageApi.error("Unable to find account details")
         }
     }
+
     return (
         <div>
             {contextHolder}
@@ -70,113 +97,134 @@ const NewTransaction = () => {
                 title="New Transaction"
                 extra={
                     <Input
-                        onChange={(e)=> setAccountNo(e.target.value)}
+                        onChange={(e) => setAccountNo(e.target.value)}
                         placeholder='Enter Account Number'
-                        addonAfter={<SearchOutlined  />}
-                        onClick={searchByAccountNo}
-                        style={{ cursor: "pointer" }} />
-                       
+                        addonAfter={<SearchOutlined onClick={searchByAccountNo} />}
+                        style={{ cursor: "pointer" }}
+                    />
                 }
-
             >
-
-
                 {
                     accountDetail ?
                         <div>
-                            <div>
-                                <div className='flex items-center justify-start gap-2'>
-                                    <Image width={120} className='rounded-full' src={`${import.meta.env.VITE_BASEURL}/${accountDetail?.profile }`}></Image>
-                                    <Image width={120} className='rounded-full' src={`${import.meta.env.VITE_BASEURL}/${accountDetail?.signature }`}></Image>
-                                </div>
+                            <div className='flex items-center justify-start gap-2'>
+                                <Image width={120} className='rounded-full' src={`${import.meta.env.VITE_BASEURL}/${accountDetail?.profile}`} />
+                                <Image width={120} className='rounded-full' src={`${import.meta.env.VITE_BASEURL}/${accountDetail?.signature}`} />
                             </div>
                             <div className='mt-5 grid md:grid-cols-3 gap-8'>
                                 <div className='mt-3 flex flex-col gap-3'>
                                     <div className='flex justify-between items-center'>
-                                        <b>Name : </b> <b>{accountDetail?.fullname }</b>
-
-                                    </div>
-
-                                    <div className='flex justify-between items-center'>
-                                        <b>Mobile : </b> <b>{accountDetail?.mobile }</b>
-
+                                        <b>Name : </b> <b>{accountDetail?.fullname}</b>
                                     </div>
                                     <div className='flex justify-between items-center'>
-                                        <b>Balance : </b> <b>{accountDetail?.currency === "inr" ? "₹" : "$"} {accountDetail?.finalBalance}</b>
-
+                                        <b>Mobile : </b> <b>{accountDetail?.mobile}</b>
                                     </div>
                                     <div className='flex justify-between items-center'>
-                                        <b>DOB : </b> <b>{accountDetail?.dob }</b>
-
+                                        <b>Balance(s) : </b> 
+                                        <div className="text-right">
+                                            {accountDetail?.balances?.length > 0 ? (
+                                                accountDetail.balances.map((balance) => {
+                                                    if (!balance?.currency) return null;
+                                                    
+                                                    const currencySymbols = {
+                                                        usd: '$',
+                                                        inr: '₹',
+                                                        eur: '€',
+                                                        afn: '؋'
+                                                    };
+                                                    
+                                                    const symbol = currencySymbols[balance.currency.toLowerCase()] || '';
+                                                    const amount = Number(balance.balance || 0).toLocaleString(undefined, {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2
+                                                    });
+                                                    
+                                                    return (
+                                                        <div key={balance.currency} className="font-medium">
+                                                            {balance.currency.toUpperCase()}: {symbol}{amount}
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <span className="text-gray-400">No balances</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className='flex justify-between items-center'>
-                                        <b>Currency : </b> <b>{accountDetail?.currency }</b>
-
+                                        <b>DOB : </b> <b>{accountDetail?.dob}</b>
                                     </div>
-
-
+                                 
                                 </div>
                                 <div></div>
                                 <Form
                                     form={transactionForm}
                                     onFinish={onFinish}
                                     layout='vertical'
-        c
                                 >
                                     <div className='grid md:grid-cols-2 gap-x-3'>
+
                                         <Form.Item
-                                            label="Tranasaction Type"
+                                            label="Transaction Type"
                                             rules={[{ required: true }]}
                                             name="transactionType"
                                         >
                                             <Select
                                                 placeholder="Transaction Type"
-                                                className='w-full'
                                                 options={[
                                                     { value: "cr", label: "CR" },
                                                     { value: "dr", label: "DR" }
                                                 ]}
-                                            >
-
-                                            </Select>
-
+                                            />
                                         </Form.Item>
+
+                                        <Form.Item
+                                            label="Currency"
+                                            name="currency"
+                                            rules={[{ required: true, message: 'Please select currency' }]}
+                                        >
+                                            <Select
+                                                placeholder="Select Currency"
+                                                onChange={(val) => setSelectedCurrency(val)}
+                                            >
+                                                {accountDetail?.balances?.map((balance) => (
+                                                    <Option key={balance.currency} value={balance.currency}>
+                                                        {balance.currency.toUpperCase()}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+
+                                       
+                                    </div>
 
                                         <Form.Item
                                             label="Transaction Amount"
                                             rules={[{ required: true }]}
                                             name="transactionAmount"
                                         >
-
                                             <Input
                                                 placeholder='500.00'
-                                                type='Number'
-
+                                                type='number'
+                                                min={0}
                                             />
-
                                         </Form.Item>
 
-                                    </div>
                                     <Form.Item
-                                        label="Refrence"
+                                        label="Reference"
                                         name="refrence"
                                     >
                                         <Input.TextArea />
-
                                     </Form.Item>
 
-                                    <Form.Item  >
+                                    <Form.Item>
                                         <Button
                                             htmlType='submit'
-                                            type='text'
-                                            className='!bg-blue-500 !text-white !font-semibold !w-full'
+                                            type='primary'
+                                            className='w-full'
                                         >
                                             Submit
-
                                         </Button>
                                     </Form.Item>
-
-
 
                                 </Form>
                             </div>
@@ -184,9 +232,6 @@ const NewTransaction = () => {
                         :
                         <Empty />
                 }
-
-
-
             </Card>
         </div>
     )

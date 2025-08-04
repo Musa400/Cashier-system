@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Card, DatePicker, Form, Image, Input, message, Modal, Popconfirm, Select, Table } from 'antd'
+import { Button, Card, Form, Image, Input, message, Modal, Popconfirm, Select, Table } from 'antd'
 import { DeleteOutlined, DownloadOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons'
 import { http, uploadFile, fetchData, trimData } from '../../../modules/modules'
 import useSWR, { mutate } from 'swr'
@@ -7,7 +7,7 @@ const { Item } = Form
 const { Option } = Select
 
 const NewAccount = () => {
-    //get userInfo from the session stroage
+    // get userInfo from the session storage
     const userInfo = JSON.parse(sessionStorage.getItem("userInfo"))
     const [accountForm] = Form.useForm();
     const [accountModal, setAccountModal] = useState(false);
@@ -21,24 +21,26 @@ const NewAccount = () => {
     const [finalCustomer, setFinalCustomer] = useState(null)
     const [edit, setEdit] = useState(null);
 
-
-
-
-    //get branding details
+    // get branding details
     const { data: brandings, error: bError } = useSWR(
         "/api/branding",
         fetchData,
         {
             revalidateOnFocus: false,
             revalidateOnReconnect: false,
-            refreshInterval: 1200000,
+            refreshInterval: 120000,
         }
     )
 
     let bankAccountNo = Number(brandings && brandings?.data[0]?.bankAccountNo) + 1
     let brandingId = brandings && brandings?.data[0]?._id;
 
-    accountForm.setFieldValue("accountNo", bankAccountNo);
+    // Set accountNo field dynamically only if not editing
+    useEffect(() => {
+        if (!edit) {
+            accountForm.setFieldValue("accountNo", bankAccountNo);
+        }
+    }, [bankAccountNo, edit, accountForm]);
 
     // get customer data
     useEffect(() => {
@@ -46,38 +48,43 @@ const NewAccount = () => {
             try {
                 const httpReq = http();
                 const { data } = await httpReq.get("/api/customers");
-                setAllCustomer(data?.data?.filter((item)=>item.branch == userInfo.branch));
-                setFinalCustomer(data?.data?.filter((item)=>item.branch == userInfo.branch));
+                // Filter by user branch
+                const filtered = data?.data?.filter((item) => item.branch === userInfo.branch);
+                setAllCustomer(filtered);
+                setFinalCustomer(filtered);
             } catch (err) {
                 messageApi.error("Unable to fetch data !");
             }
         }
         fetcher();
-
-
     }, [no])
 
-
-
-
-
-
-
-
-    //create new account 
+    // create new account 
     const onFinish = async (values) => {
         try {
             setLoading(true);
-            const finalObj = trimData(values)
+            const finalObj = trimData(values);
+
+            // Build balances array from selected currencies with zero initial balance
+            if (values.currencies && values.currencies.length > 0) {
+                finalObj.balances = values.currencies.map(cur => ({
+                    currency: cur,
+                    balance: 0
+                }));
+            } else {
+                finalObj.balances = [];
+            }
+            delete finalObj.currency; // remove old single currency field if any
+
             finalObj.profile = photo ? photo : "bankImages/dummy.png";
             finalObj.signature = signature ? signature : "bankImages/signature.png";
             finalObj.document = document ? document : "bankImages/bank.jfif";
-            finalObj.key = finalObj.email
-            finalObj.userType = "customer"
+            finalObj.key = finalObj.email;
+            finalObj.userType = "customer";
             finalObj.branch = userInfo?.branch;
             finalObj.createdBy = userInfo?.email;
+
             const httpReq = http();
-            console.log(httpReq)
             const { data } = await httpReq.post(`/api/users`, finalObj)
             finalObj.customerLoginId = data?.data?._id
 
@@ -88,7 +95,6 @@ const NewAccount = () => {
             await httpReq.post(`/api/customers`, finalObj)
             await httpReq.post(`/api/send-email`, obj)
             await httpReq.put(`/api/branding/${brandingId}`, { bankAccountNo })
-
 
             accountForm.resetFields();
             mutate("/api/branding")
@@ -106,17 +112,15 @@ const NewAccount = () => {
                         errors: ["Email already exist !"],
                     }
                 ])
-
             } else {
                 messageApi.error("please try again !");
             }
-
         } finally {
             setLoading(false);
         }
-
     }
-    //handle photo
+
+    // handle photo upload
     const handlePhoto = async (e) => {
         const file = e.target.files[0];
         const folderName = "customerPhoto"
@@ -125,11 +129,9 @@ const NewAccount = () => {
             setPhoto(result.filePath)
         } catch (err) {
             messageApi.error("Unable to upload !");
-
         }
-
     }
-    //handle signature
+    // handle signature upload
     const handleSignature = async (e) => {
         const file = e.target.files[0];
         const folderName = "customerSignature"
@@ -138,11 +140,9 @@ const NewAccount = () => {
             setsignature(result.filePath)
         } catch (err) {
             messageApi.error("Unable to upload !");
-
         }
-
     }
-    //handle document
+    // handle document upload
     const handleDocument = async (e) => {
         const file = e.target.files[0];
         const folderName = "customerDocument"
@@ -151,13 +151,10 @@ const NewAccount = () => {
             setDocument(result.filePath)
         } catch (err) {
             messageApi.error("Unable to upload !");
-
         }
-
     }
 
-
-    //update is active
+    // update isActive status
     const updateIsActive = async (id, isActive, loginId) => {
         try {
             const obj = {
@@ -168,58 +165,49 @@ const NewAccount = () => {
             await httpReq.put(`/api/customers/${id}`, obj);
             messageApi.success("Record updated successfully !")
             setNo(no + 1)
-
         } catch (err) {
             messageApi.error("Unable to update isActive !")
-
         }
-
     }
 
-    // searching coding 
+    // searching code 
     const onSearch = (e) => {
         const value = e.target.value.trim().toLowerCase();
+        if (!value) {
+            setAllCustomer(finalCustomer);
+            return;
+        }
         const filter = finalCustomer && finalCustomer.filter(cust => {
-            if (cust?.fullname.toLowerCase().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.userType.toLowerCase().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.email.toLowerCase().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.address.toLowerCase().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.accountNo.toString().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.createdBy.toString().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.finalBalance.toString().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.branch.toLowerCase().indexOf(value) != -1) {
-                return cust
-            }
-            else if (cust?.mobile.toString().indexOf(value) != -1) {
-                return cust
-            }
+            if (cust?.fullname.toLowerCase().includes(value)) return true;
+            if (cust?.userType.toLowerCase().includes(value)) return true;
+            if (cust?.email.toLowerCase().includes(value)) return true;
+            if (cust?.address.toLowerCase().includes(value)) return true;
+            if (cust?.accountNo.toString().includes(value)) return true;
+            if (cust?.createdBy.toLowerCase().includes(value)) return true;
+            if (cust?.branch.toLowerCase().includes(value)) return true;
+            if (cust?.mobile.toString().includes(value)) return true;
 
+            // Check balances for currency or balance string match
+            if (cust?.balances && cust.balances.some(b => 
+                b.currency.toLowerCase().includes(value) ||
+                b.balance.toString().includes(value)
+            )) return true;
+
+            return false;
         })
         setAllCustomer(filter)
     }
 
-
-    //update employee
+    // update customer data for edit
     const onEditUser = async (obj) => {
         setEdit(obj)
         setAccountModal(true)
-        accountForm.setFieldsValue(obj)
-    }
 
+        // Map balances array to currencies array for form initial value
+        const initialCurrencies = obj.balances ? obj.balances.map(b => b.currency) : [];
+
+        accountForm.setFieldsValue({ ...obj, currencies: initialCurrencies });
+    }
 
     const onUpdate = async (values) => {
         try {
@@ -228,18 +216,26 @@ const NewAccount = () => {
             delete finalObj.password
             delete finalObj.email
             delete finalObj.accountNo
-            if (photo) {
-                finalObj.profile = photo
+
+            // If photo/signature/document updated
+            if (photo) finalObj.profile = photo;
+            if (signature) finalObj.signature = signature;
+            if (document) finalObj.document = document;
+
+            // Update balances on edit if needed - here, keep old balances or update if currencies changed?
+            // (You may want to add logic to sync balances with selected currencies)
+            if (values.currencies && values.currencies.length > 0) {
+                // Example: preserve existing balances if currency exists, else start at zero
+                const existingBalances = edit.balances || [];
+                finalObj.balances = values.currencies.map(cur => {
+                    const existing = existingBalances.find(b => b.currency === cur);
+                    return existing || { currency: cur, balance: 0 };
+                });
             }
-            if (signature) {
-                finalObj.signature = signature
-            }
-            if (document) {
-                finalObj.document = document
-            }
+
             const httpReq = http();
             await httpReq.put(`/api/customers/${edit._id}`, finalObj);
-            messageApi.success("Customer Update Successfully!")
+            messageApi.success("Customer Updated Successfully!")
 
             setNo(no + 1)
             setEdit(null);
@@ -248,19 +244,14 @@ const NewAccount = () => {
             setDocument(null);
             accountForm.resetFields()
             setAccountModal(false)
-
-
         } catch (err) {
             messageApi.error("Unable to update Customer !")
-
         } finally {
             setLoading(false)
         }
-
-
     }
 
-    //delete employee
+    // delete customer
     const onDeleteUser = async (id, loginId) => {
         try {
             const httpReq = http();
@@ -271,35 +262,211 @@ const NewAccount = () => {
             setNo(no + 1)
         } catch (err) {
             messageApi.error("Unable To Delete The Customer !");
-
         }
     }
 
+    // Fetch and format currency options
+    const [currencyOptions, setCurrencyOptions] = useState([]);
+    const [loadingCurrencies, setLoadingCurrencies] = useState(false);
 
+    useEffect(() => {
+        const fetchCurrencies = async () => {
+            try {
+                setLoadingCurrencies(true);
+                const httpReq = http();
+                const { data } = await httpReq.get("/api/currency");
+                
+                // Map the currencies to the required format for the Select component
+                const formattedOptions = data.data.map(currency => ({
+                    label: `${getCurrencySymbol(currency.currencyName)} ${currency.currencyName.toUpperCase()}  ${currency.currencyDesc}`,
+                    value: currency.currencyName.toLowerCase()
+                }));
+                
+                setCurrencyOptions(formattedOptions);
+            } catch (error) {
+                console.error("Error fetching currencies:", error);
+                messageApi.error("Failed to load currencies");
+            } finally {
+                setLoadingCurrencies(false);
+            }
+        };
 
+        fetchCurrencies();
+    }, []);
 
+    // Helper function to get currency symbol
+    const getCurrencySymbol = (currencyCode) => {
+        const symbols = {
+            usd: '💵',
+            eur: '💶',
+            gbp: '💷',
+            jpy: '💴',
+            cny: '¥',
+            inr: '₹',
+            afn: '؋',
+            pkr: '₨',
+            sar: '﷼',
+            aed: 'د.إ',
+            cad: 'C$',
+            aud: 'A$',
+            chf: 'CHF',
+            try: '₺',
+            rub: '₽',
+            brl: 'R$',
+            mxn: 'Mex$',
+            ngn: '₦',
+            zar: 'R',
+            krw: '₩',
+            hkd: 'HK$',
+            myr: 'RM',
+            sgd: 'S$',
+            thb: '฿',
+            egp: 'E£',
+            ils: '₪',
+            kwd: 'KD',
+            qar: 'QR',
+            omr: 'OMR',
+            mkd: 'ден'
+        };
+        return symbols[currencyCode.toLowerCase()] || '';
+    };
 
+    // Get all unique currencies from all accounts
+    const getAllCurrencies = () => {
+        const currencyMap = new Map();
+        
+        allCustomer?.forEach(customer => {
+            customer.balances?.forEach(balance => {
+                if (balance?.currency) {
+                    // Normalize the currency code (trim, lowercase, and handle special cases)
+                    let code = balance.currency.toString().trim().toLowerCase();
+                    
+                    // Handle common variations
+                    if (code === '$' || code === 'usd' || code === 'dollar') code = 'usd';
+                    else if (code === '؋' || code === 'afn' || code === 'afghani') code = 'afn';
+                    else if (code === '₹' || code === 'inr' || code === 'rupee') code = 'inr';
+                    // Add more variations as needed
+                    
+                    // Only add if we don't already have this currency
+                    if (!currencyMap.has(code)) {
+                        const config = currencyConfig[code] || { 
+                            symbol: code.toUpperCase(), 
+                            name: code.toUpperCase() 
+                        };
+                        currencyMap.set(code, config);
+                    }
+                }
+            });
+        });
+        
+        // Convert to array of [code, config] and sort by currency code
+        return Array.from(currencyMap.entries())
+            .sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+    };
+
+    // Generate dynamic currency columns
+    const getCurrencyColumns = () => {
+        const currencyEntries = getAllCurrencies();
+        
+        return currencyEntries.map(([code, config]) => ({
+            title: config.name,
+            key: `${code}_balance`,
+            width: 120,
+            align: 'right',
+            render: (_, record) => {
+                // Find the matching balance (case-insensitive and handle variations)
+                const balance = record.balances?.find(b => {
+                    if (!b.currency) return false;
+                    const bCode = b.currency.toString().trim().toLowerCase();
+                    
+                    // Apply same normalization as in getAllCurrencies
+                    if (bCode === '$' || bCode === 'usd' || bCode === 'dollar') return code === 'usd';
+                    if (bCode === '؋' || bCode === 'afn' || bCode === 'afghani') return code === 'afn';
+                    if (bCode === '₹' || bCode === 'inr' || bCode === 'rupee') return code === 'inr';
+                    // Add more variations as needed
+                    
+                    return bCode === code;
+                })?.balance || 0;
+                
+                const isNegative = Number(balance) < 0;
+                const displayValue = Math.abs(Number(balance)).toLocaleString(undefined, { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
+                
+                return (
+                    <div className="text-right">
+                        <div className={`font-semibold ${isNegative ? 'text-red-600' : 'text-gray-800'}`}>
+                            {config.symbol} {displayValue}
+                        </div>
+                    </div>
+                );
+            }
+        }));
+    };
+
+    // Currency configuration
+    const currencyConfig = {
+        afn: { symbol: '؋', name: 'Afghani' },
+        usd: { symbol: '$', name: 'Dollar' },
+        eur: { symbol: '€', name: 'Euro' },
+        inr: { symbol: '₹', name: 'Rupee' },
+        gbp: { symbol: '£', name: 'Pound' },
+        jpy: { symbol: '¥', name: 'Yen' },
+        cny: { symbol: '¥', name: 'Yuan' },
+        rub: { symbol: '₽', name: 'Ruble' },
+        try: { symbol: '₺', name: 'Lira' },
+        aed: { symbol: 'د.إ', name: 'Dirham' },
+        sar: { symbol: '﷼', name: 'Riyal' },
+        pkr: { symbol: '₨', name: 'Rupee' },
+        egp: { symbol: 'E£', name: 'Pound' },
+        kwd: { symbol: 'KD', name: 'Dinar' },
+        qar: { symbol: 'QR', name: 'Riyal' },
+        omr: { symbol: 'OMR', name: 'Rial' },
+        cad: { symbol: 'C$', name: 'Canadian Dollar' },
+        aud: { symbol: 'A$', name: 'Australian Dollar' },
+        chf: { symbol: 'CHF', name: 'Franc' },
+        hkd: { symbol: 'HK$', name: 'Hong Kong Dollar' },
+        sgd: { symbol: 'S$', name: 'Singapore Dollar' },
+        thb: { symbol: '฿', name: 'Baht' },
+        krw: { symbol: '₩', name: 'Won' },
+        myr: { symbol: 'RM', name: 'Ringgit' },
+        ngn: { symbol: '₦', name: 'Naira' },
+        zar: { symbol: 'R', name: 'Rand' },
+        brl: { symbol: 'R$', name: 'Real' },
+        mxn: { symbol: 'Mex$', name: 'Peso' },
+        ils: { symbol: '₪', name: 'Shekel' },
+        nok: { symbol: 'kr', name: 'Krone' },
+        sek: { symbol: 'kr', name: 'Krona' },
+        dkk: { symbol: 'kr', name: 'Krone' },
+        php: { symbol: '₱', name: 'Peso' },
+        idr: { symbol: 'Rp', name: 'Rupiah' },
+        lkr: { symbol: 'Rs', name: 'Rupee' },
+        bdt: { symbol: '৳', name: 'Taka' },
+        mkd: { symbol: 'ден', name: 'Denar' }
+    };
+
+    // Table columns definition
     const columns = [
         {
             title: "Photo",
             key: "photo",
-            render: (src, obj) => (
+            render: (_, obj) => (
                 <Image src={`${import.meta.env.VITE_BASEURL}/${obj?.profile}`} className="rounded-full" width={40} height={40} />
             )
         },
-
         {
             title: "Signature",
             key: "signature",
-            render: (src, obj) => (
+            render: (_, obj) => (
                 <Image src={`${import.meta.env.VITE_BASEURL}/${obj?.signature}`} className="rounded-full" width={40} height={40} />
             )
         },
         {
             title: "Document",
             key: "document",
-            render: (src, obj) => (
-                <Button type='text' shape='cricle' className='!bg-blue-100 !text-blue-500' icon={<DownloadOutlined />}></Button>
+            render: (_, obj) => (
+                <Button type='text' shape='circle' className='!bg-blue-100 !text-blue-500' icon={<DownloadOutlined />} />
             )
         },
         {
@@ -323,11 +490,11 @@ const NewAccount = () => {
             key: "userType",
             render: (text) => {
                 if (text === "admin") {
-                    return <span className=' capitalize text-indigo-500'>{text}</span>
+                    return <span className='capitalize text-indigo-500'>{text}</span>
                 } else if (text === "employee") {
-                    return <span className=' capitalize text-green-500'>{text}</span>
+                    return <span className='capitalize text-green-500'>{text}</span>
                 } else {
-                    return <span className=' capitalize text-red-500'>{text}</span>
+                    return <span className='capitalize text-red-500'>{text}</span>
                 }
             }
         },
@@ -336,11 +503,8 @@ const NewAccount = () => {
             dataIndex: "accountNo",
             key: "accountNo",
         },
-        {
-            title: "Balance",
-            dataIndex: "finalBalance",
-            key: "Balance",
-        },
+        // Add dynamic currency columns
+        ...getCurrencyColumns(),
         {
             title: "Fullname",
             dataIndex: "fullname",
@@ -361,7 +525,6 @@ const NewAccount = () => {
             dataIndex: "mobile",
             key: "mobile",
         },
-
         {
             title: "Action",
             key: "action",
@@ -374,33 +537,23 @@ const NewAccount = () => {
                         onCancel={() => messageApi.info("No changes occur !")}
                         onConfirm={() => updateIsActive(obj._id, obj.isActive, obj.customerLoginId)}
                     >
-
-                        <Button type='text' className={`${obj.isActive ? "!bg-indigo-100 !text-indigo-500" : "!bg-pink-100 !text-pink-500"}`} icon={obj.isActive ? <EyeOutlined /> : <EyeInvisibleOutlined />}></Button>
-
+                        <Button type='text' className={`${obj.isActive ? "!bg-indigo-100 !text-indigo-500" : "!bg-pink-100 !text-pink-500"}`} icon={obj.isActive ? <EyeOutlined /> : <EyeInvisibleOutlined />} />
                     </Popconfirm>
-
-
-                    <Popconfirm title="Are You Sure !"
+                    <Popconfirm
+                        title="Are You Sure !"
                         description="Once you update,you can also re-update !"
                         onCancel={() => messageApi.info("No Changes occur !")}
                         onConfirm={() => onEditUser(obj)}
-
                     >
-
-                        <Button type='text' className='!bg-green-100 !text-green-500' icon={<EditOutlined />}></Button>
-
+                        <Button type='text' className='!bg-green-100 !text-green-500' icon={<EditOutlined />} />
                     </Popconfirm>
-
-
                     <Popconfirm
                         title="Are You Sure ?"
                         description="Once You Deleted, you can not re-store !"
                         onCancel={() => messageApi.info("Your data is safe !")}
                         onConfirm={() => onDeleteUser(obj._id, obj.customerLoginId)}
-
                     >
-
-                        <Button type='text' className='!bg-rose-100 !text-rose-500' icon={<DeleteOutlined />}></Button>
+                        <Button type='text' className='!bg-rose-100 !text-rose-500' icon={<DeleteOutlined />} />
                     </Popconfirm>
                 </div>
             )
@@ -411,6 +564,9 @@ const NewAccount = () => {
         accountForm.resetFields();
         setAccountModal(false)
         setEdit(null)
+        setPhoto(null);
+        setsignature(null);
+        setDocument(null);
     }
 
     return (
@@ -431,7 +587,7 @@ const NewAccount = () => {
                 </Card>
             </div>
 
-            <Modal footer={null} title="Open New Account" open={accountModal} onCancel={onCloseModal} width={820}>
+            <Modal footer={null} title={edit ? "Update Account" : "Open New Account"} open={accountModal} onCancel={onCloseModal} width={820}>
                 <Form layout='vertical' onFinish={edit ? onUpdate : onFinish} form={accountForm}>
                     {
                         !edit &&
@@ -448,7 +604,6 @@ const NewAccount = () => {
                         </div>
                     }
                     <div className="grid md:grid-cols-3 gap-x-3">
-
                         <Item label="FullName" name="fullname" rules={[{ required: true }]}>
                             <Input placeholder='Full name' />
                         </Item>
@@ -458,7 +613,6 @@ const NewAccount = () => {
                         <Item label="Father Name" name="fatherName" rules={[{ required: true }]}>
                             <Input placeholder='Father name' />
                         </Item>
-
                         <Item label="DOB" name="dob" rules={[{ required: true }]}>
                             <Input type='date' />
                         </Item>
@@ -468,11 +622,18 @@ const NewAccount = () => {
                                 <Option value="female">Female</Option>
                             </Select>
                         </Item>
-                        <Item label="Currency" name="currency" rules={[{ required: true }]}>
-                            <Select placeholder="Select The Currency">
-                                <Option value="inr">INR</Option>
-                                <Option value="usd">USD</Option>
-                            </Select>
+                        <Item label="Currencies" name="currencies" rules={[{ required: true }]}>
+                            <Select
+                                mode="multiple"
+                                placeholder="Select The Currencies"
+                                loading={loadingCurrencies}
+                                options={currencyOptions}
+                                optionFilterProp="label"
+                                showSearch
+                                filterOption={(input, option) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
+                            />
                         </Item>
                         <Item label="Photo" name="xyz" >
                             <Input type='file' onChange={handlePhoto} />
@@ -484,11 +645,9 @@ const NewAccount = () => {
                             <Input type='file' onChange={handleDocument} />
                         </Item>
                     </div>
-
                     <Item label="Address" name="address" rules={[{ required: true }]}>
                         <Input.TextArea />
                     </Item>
-
                     <Item className='flex justify-end items-center'>
                         {
                             edit

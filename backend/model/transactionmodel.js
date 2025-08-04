@@ -7,6 +7,8 @@ const transactionSchema = new Schema({
     refrence : String,
     currentBalance : Number,
     accountNo : Number,
+    currency: { type: String, required: true },
+
     key : String,
     customerId : String,
     branch : String,

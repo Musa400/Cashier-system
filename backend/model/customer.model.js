@@ -1,38 +1,39 @@
-const mongo = require ("mongoose");
-const {Schema} = mongo;
+const mongo = require("mongoose");
+const { Schema } = mongo;
 
 const customersSchema = new Schema({
-    accountNo:Number,
-    fullname:String,
-    mobile:String,
-    fatherName:String,
-    email:{
-        type:String,
-        unique:true
+  accountNo: Number,
+  fullname: String,
+  mobile: String,
+  fatherName: String,
+  email: {
+    type: String,
+    unique: true,
+  },
+  dob: String,
+  gender: String,
+
+  // Remove single currency, add balances array instead
+  balances: [
+    {
+      currency: { type: String, required: true },
+      balance: { type: Number, default: 0 },
     },
-    dob:String,
-    gender:String,
-    currency:String,
-    key:String,
-    profile:String,
-    signature:String,
-    document:String,
-    finalBalance:{
-        type:Number,
-        default:0
-    },
-    address:String,
-    userType:String,
-    branch:String,
-    createdBy:String,
-    customerLoginId:String,
-    isActive:{
-        type:Boolean,
-        default:false
-    },
+  ],
 
+  key: String,
+  profile: String,
+  signature: String,
+  document: String,
+  address: String,
+  userType: String,
+  branch: String,
+  createdBy: String,
+  customerLoginId: String,
+  isActive: {
+    type: Boolean,
+    default: false,
+  },
+}, { timestamps: true });
 
-
-},{timestamps:true})
-
-module.exports = mongo.model("customer",customersSchema)
+module.exports = mongo.model("customer", customersSchema);
