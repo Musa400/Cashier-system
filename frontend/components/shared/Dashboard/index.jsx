@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, message, Typography, Row, Col, Spin } from 'antd';
+import { Card, message, Typography, Row, Col, Spin, Tag } from 'antd';
 import { 
     DollarOutlined, 
     ArrowUpOutlined, 
@@ -25,6 +25,7 @@ const getCurrencySymbol = (currency) => {
 
 const Dashboard = () => {
     const [currencyData, setCurrencyData] = useState([]);
+    const [specialAccounts, setSpecialAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [messageApi, contextHolder] = message.useMessage();
 
@@ -34,22 +35,62 @@ const Dashboard = () => {
             try {
                 setLoading(true);
                 const httpReq = http();
+                
+                // Fetch customers
+                const { data: customers } = await httpReq.get("/api/customers");
+
+                // Helper to format account number
+                const formatAcc = (num)=>String(num||'').padStart(15,'0');
+
+                // Identify special accounts by accountType
+                const specialAcc = customers.data.filter(acc => {
+                    const type = (acc.accountType || '').toLowerCase();
+                    return type === 'bank' || type === 'store';
+                });
+
+                setSpecialAccounts(specialAcc.map(acc => ({
+                    ...acc,
+                    accountNo: formatAcc(acc.accountNo)
+                })));
+
+                // Exclude special accounts from aggregate calculations
+                const regularCustomers = customers.data.filter(acc => {
+                    const type = (acc.accountType || '').toLowerCase();
+                    return !(type === 'bank' || type === 'store');
+                });
+
+                // Fetch Aziz Bank data first
                 const { data: currencies } = await httpReq.get("/api/currency");
                 
-                // Fetch balance for each currency
+                // Fetch balance for each currency using regular customers only
                 const balances = await Promise.all(
                     currencies.data.map(async (currency) => {
                         try {
-                            const { data } = await httpReq.get(
-                                `/api/balance?currency=${encodeURIComponent(currency.currencyName)}`
-                            );
+                            // Get balances for regular customers only
+                            const totalBalance = regularCustomers.reduce((sum, customer) => {
+                                const balanceObj = customer.balances?.find(b => b.currency === currency.currencyName);
+                                return sum + (balanceObj?.balance || 0);
+                            }, 0);
+
+                            const peopleOweMe = regularCustomers.reduce((sum, customer) => {
+                                const balanceObj = customer.balances?.find(b => b.currency === currency.currencyName);
+                                return balanceObj?.balance < 0 ? sum + Math.abs(balanceObj.balance) : sum;
+                            }, 0);
+
+                            const iOwePeople = regularCustomers.reduce((sum, customer) => {
+                                const balanceObj = customer.balances?.find(b => b.currency === currency.currencyName);
+                                return balanceObj?.balance > 0 ? sum + balanceObj.balance : sum;
+                            }, 0);
+
                             return {
                                 currency: currency.currencyName,
                                 symbol: currency.symbol || '$',
-                                ...data
+                                total: totalBalance,
+                                peopleOweMe,
+                                iOwePeople
                             };
                         } catch (error) {
-                            console.error(`Error fetching balance for ${currency.currencyName}:`, error);
+                            console.error(`Error processing ${currency.currencyName}:`, error);
                             return {
                                 currency: currency.currencyName,
                                 symbol: currency.symbol || '$',
@@ -127,8 +168,34 @@ const Dashboard = () => {
 
     return (
         <div className="container mx-auto px-4 py-6">
-            <Title level={2} className="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</Title>
-            
+            {contextHolder}
+            <Title level={2} className="text-2xl font-bold text-gray-800 mb-6">
+                Dashboard Overview
+            </Title>
+
+            {specialAccounts.length > 0 && (
+              <Row gutter={[16,16]} className="mb-8">
+                {specialAccounts.map(acc => (
+                  <Col key={acc._id} xs={24} sm={12} md={8}>
+                    <Card
+                      size="small"
+                      title={<div className="flex items-center"><DollarOutlined className="text-green-500 mr-2"/><span>{acc.fullname || `Account ${acc.accountNo}`}</span></div>}
+                      className="shadow-lg"
+                    >
+                      {acc.balances?.map((bal,i)=>(
+                        <div key={i} className="flex justify-between items-center py-2">
+                          <span>{bal.currency}</span>
+                          <span className="font-semibold">
+                            {Number(bal.balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          </span>
+                        </div>
+                      ))}
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* People Owe Me Card */}
                 <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:shadow-xl">

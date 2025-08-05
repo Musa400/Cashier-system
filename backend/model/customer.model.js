@@ -22,6 +22,7 @@ const customersSchema = new Schema({
   ],
 
   key: String,
+  accountType : String,
   profile: String,
   signature: String,
   document: String,

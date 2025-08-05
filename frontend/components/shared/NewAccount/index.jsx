@@ -6,6 +6,8 @@ import useSWR, { mutate } from 'swr'
 const { Item } = Form
 const { Option } = Select
 
+const ACCOUNT_TYPES = ['Bank', 'Store', 'Person'];
+
 const NewAccount = () => {
     // get userInfo from the session storage
     const userInfo = JSON.parse(sessionStorage.getItem("userInfo"))
@@ -620,6 +622,19 @@ const NewAccount = () => {
                             <Select placeholder="Select The Gender">
                                 <Option value="male">Male</Option>
                                 <Option value="female">Female</Option>
+                            </Select>
+                        </Item>
+                        <Item
+                            label="Account Type"
+                            name="type"
+                            rules={[{ required: true, message: 'Please select account type' }]}
+                        >
+                            <Select placeholder="Select account type">
+                                {ACCOUNT_TYPES.map(t => (
+                                    <Option key={t} value={t.toLowerCase()}>
+                                        {t}
+                                    </Option>
+                                ))}
                             </Select>
                         </Item>
                         <Item label="Currencies" name="currencies" rules={[{ required: true }]}>
