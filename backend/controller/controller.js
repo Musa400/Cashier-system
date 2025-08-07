@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const dbService = require('../services/db.service');
 const userSchema = require('../model/users.model');
 const Customer = require("../model/customer.model");
@@ -16,8 +17,73 @@ const getData = async (req, res, schema) => {
 const createData = async (req, res, schema) => {
     try {
         const data = req.body;
+        console.log("Creating data for model:", schema.modelName);
+        console.log("Request data:", JSON.stringify(data, null, 2));
 
-        // Explicit email uniqueness check for user schema
+        // Handle transaction creation
+        if (schema.modelName === 'transaction') {
+            console.log("Processing transaction...");
+            
+            // For bank accounts, we need to update the store money
+            const customer = await Customer.findById(data.customerId);
+            console.log("Customer found:", customer ? customer.accountType : 'Not found');
+            
+            if (customer && customer.accountType === 'bank') {
+                console.log("Processing bank account transaction");
+                
+                // Get current store balance for the currency
+                const currency = data.currency.toUpperCase();
+                
+                let storeRecord = await CashSummary.findOne({
+                    currency: currency,
+                    location: 'store'
+                });
+                
+                console.log("Current store record:", storeRecord);
+                
+                let newAmount;
+                
+                if (storeRecord) {
+                    // Update existing record
+                    newAmount = data.transactionType === 'cr' 
+                        ? storeRecord.amount - Math.abs(parseFloat(data.transactionAmount))
+                        : storeRecord.amount + Math.abs(parseFloat(data.transactionAmount));
+                        
+                    storeRecord.amount = newAmount;
+                    await storeRecord.save();
+                    console.log("Updated existing store record");
+                } else {
+                    // Create new record
+                    newAmount = data.transactionType === 'cr' 
+                        ? -Math.abs(parseFloat(data.transactionAmount))
+                        : Math.abs(parseFloat(data.transactionAmount));
+                        
+                    storeRecord = await new CashSummary({
+                        currency: currency,
+                        location: 'store',
+                        amount: newAmount
+                    }).save();
+                    console.log("Created new store record");
+                }
+                
+                console.log("Final store record:", storeRecord);
+                
+                // Create the transaction first
+                const transaction = await new schema(data).save();
+                console.log("Transaction created:", transaction._id);
+                
+                return res.status(200).json({
+                    message: "Transaction created and store money updated successfully",
+                    data: {
+                        transaction,
+                        storeBalance: storeRecord.amount
+                    },
+                    success: true
+                });
+            }
+        }
+
+        // Handle user email uniqueness check
         if (schema.modelName === 'user') {
             const existingUser = await schema.findOne({ email: data.email });
             if (existingUser) {
@@ -28,20 +94,35 @@ const createData = async (req, res, schema) => {
             }
         }
 
-        const dbRes = await dbService.createNewRecord(data, schema);
+        // Default create operation for non-bank transactions
+        const dbRes = await new schema(data).save();
         res.status(200).json({
             message: "Data inserted successfully",
             data: dbRes,
             success: true
         });
+        
     } catch (error) {
-        console.error(error);
+        console.error("Error in createData:", error);
+        
+        // Handle specific error types
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: "Validation Error",
+                success: false,
+                error: error.message,
+                errors: error.errors
+            });
+        }
+        
         if (error.code === 11000) {
             return res.status(409).json({
                 message: "Duplicate key error",
-                success: false
+                success: false,
+                error: error.message
             });
         }
+        
         res.status(500).json({
             message: "Internal server error",
             success: false,
@@ -49,7 +130,6 @@ const createData = async (req, res, schema) => {
         });
     }
 }
-
 
 const updateData = async (req, res, schema) => {
     try {
@@ -386,16 +466,15 @@ const getTransactionByCustomer = async  (req, res, schema) => {
 
 
 module.exports = {
-    createData,
     getData,
+    createData,
     updateData,
     deleteData,
     findByAccountNo,
-    getTransactionSummary,
     getPaginatedTransactions,
     getDashboardStats,
     getStoreAccount,
     getCurrencySummary,
     getBankCurrencyTotals,
     getTransactionByCustomer
-}
+};

@@ -636,6 +636,19 @@ const NewAccount = () => {
                         </div>
                     }
                     <div className="grid md:grid-cols-3 gap-x-3">
+                    <Item
+                            label="Account Type"
+                            name="accountType"
+                            rules={[{ required: true, message: 'Please select account type' }]}
+                        >
+                            <Select placeholder="Select account type">
+                                {ACCOUNT_TYPES.map(t => (
+                                    <Option key={t} value={t.toLowerCase()}>
+                                        {t}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Item>
                         <Item label="FullName" name="fullname" rules={[{ required: true }]}>
                             <Input placeholder='Full name' />
                         </Item>
@@ -654,19 +667,7 @@ const NewAccount = () => {
                                 <Option value="female">Female</Option>
                             </Select>
                         </Item>
-                        <Item
-                            label="Account Type"
-                            name="accountType"
-                            rules={[{ required: true, message: 'Please select account type' }]}
-                        >
-                            <Select placeholder="Select account type">
-                                {ACCOUNT_TYPES.map(t => (
-                                    <Option key={t} value={t.toLowerCase()}>
-                                        {t}
-                                    </Option>
-                                ))}
-                            </Select>
-                        </Item>
+                        
                         <Item label="Currencies" name="currencies" rules={[{ required: true }]}>
                             <Select
                                 mode="multiple"

@@ -19,7 +19,7 @@ const Index = () => {
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [amounts, setAmounts] = useState({});
-  const [bankName, setBankName] = useState("");
+  const [personName, setpersonName] = useState("");
   const [records, setRecords] = useState([]);
   const [allCurrencies, setAllCurrencies] = useState([]); // all currencies found in records
 
@@ -71,13 +71,13 @@ const Index = () => {
     setAmounts((prev) => ({ ...prev, [currency]: value }));
   };
 
-  const handleBankNameChange = (e) => {
-    setBankName(e.target.value);
+  const handlepersonNameChange = (e) => {
+    setpersonName(e.target.value);
   };
 
   const handleSubmit = async () => {
-    if (!bankName) {
-      message.error("لطفاً د بانک نوم ولیکئ");
+    if (!personName) {
+      message.error("لطفاً د شخص نوم ولیکئ");
       return;
     }
     if (selectedCurrencies.length === 0) {
@@ -95,7 +95,7 @@ const Index = () => {
       currency: cur,
       amount: amounts[cur],
       location: "store",
-      bankName,
+      personName,
     }));
 
     try {
@@ -105,7 +105,7 @@ const Index = () => {
         form.resetFields();
         setSelectedCurrencies([]);
         setAmounts({});
-        setBankName("");
+        setpersonName("");
         setModalVisible(false);
         fetchRecords();
       } else {
@@ -119,11 +119,11 @@ const Index = () => {
   // 🟡 Group records by bank and location
   const groupedData = {};
   records.forEach((item) => {
-    const key = `${item.bankName}-${item.location}`;
+    const key = `${item.personName}-${item.location}`;
     if (!groupedData[key]) {
       groupedData[key] = {
         key,
-        bankName: item.bankName,
+        personName: item.personName,
         location: item.location,
       };
     }
@@ -135,9 +135,9 @@ const Index = () => {
   // 🟢 Dynamic columns
   const columns = [
     {
-      title: "ځای نوم",
-      dataIndex: "bankName",
-      key: "bankName",
+      title: "شخص نوم",
+      dataIndex: "personName",
+      key: "personName",
     },
     ...allCurrencies.map((cur) => ({
       title: cur.display,
@@ -157,7 +157,7 @@ const Index = () => {
             form.resetFields();
             setSelectedCurrencies([]);
             setAmounts({});
-            setBankName("");
+            setpersonName("");
           }}
           style={{ marginBottom: 16 }}
         >
@@ -177,8 +177,8 @@ const Index = () => {
             <Form.Item label="ځای نوم" required>
               <Input
                 placeholder="لکه Azizi Bank"
-                value={bankName}
-                onChange={handleBankNameChange}
+                value={personName}
+                onChange={handlepersonNameChange}
               />
             </Form.Item>
 
