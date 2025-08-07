@@ -11,7 +11,7 @@ import {
   message,
 } from "antd";
 import { http } from "../../../modules/modules";
-import AdminLayout from "../../Layout/AdminLayout";
+import AdminLayout from "../../Layout/Adminlayout";
 const { Option } = Select;
 
 const Index = () => {
@@ -21,7 +21,7 @@ const Index = () => {
   const [amounts, setAmounts] = useState({});
   const [bankName, setBankName] = useState("");
   const [records, setRecords] = useState([]);
-  const [allCurrencies, setAllCurrencies] = useState(["USD", "AFN", "EUR"]); // all currencies found in records
+  const [allCurrencies, setAllCurrencies] = useState([]); // all currencies found in records
 
   const httpReq = http();
 
@@ -30,11 +30,6 @@ const Index = () => {
       const res = await httpReq.get("/api/cash-summary");
       if (res.data.success) {
         setRecords(res.data.data);
-
-        // Find all unique currencies dynamically
-        const currenciesSet = new Set();
-        res.data.data.forEach((item) => currenciesSet.add(item.currency));
-        setAllCurrencies(Array.from(currenciesSet));
       } else {
         message.error("د معلوماتو په اخیستلو کې ستونزه");
       }
@@ -43,8 +38,27 @@ const Index = () => {
     }
   };
 
+  const fetchCurrencies = async () => {
+    try {
+      const { data } = await httpReq.get("/api/currency");
+      if (data && data.data) {
+        // Transform the API response to include both code and symbol
+        const currencies = data.data.map((currency) => ({
+          code: currency.currencyName, // e.g., "$"
+          symbol: currency.currencyDesc, // e.g., "usd"
+          display: `${currency.currencyName} (${currency.currencyDesc.toUpperCase()})`, // e.g., "$ (USD)"
+        }));
+        setAllCurrencies(currencies);
+      }
+    } catch (err) {
+      console.error("Error fetching currencies:", err);
+      message.error("د اسعارو په اخیستلو کې ستونزه");
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
+    fetchCurrencies();
   }, []);
 
   const onCurrencyChange = (values) => {
@@ -80,7 +94,7 @@ const Index = () => {
     const payload = selectedCurrencies.map((cur) => ({
       currency: cur,
       amount: amounts[cur],
-      location: "bank",
+      location: "store",
       bankName,
     }));
 
@@ -125,11 +139,10 @@ const Index = () => {
       dataIndex: "bankName",
       key: "bankName",
     },
-   
     ...allCurrencies.map((cur) => ({
-      title: cur,
-      dataIndex: cur,
-      key: cur,
+      title: cur.display,
+      dataIndex: cur.code,
+      key: cur.code,
       render: (val) => val || "-", // Show "-" if no value
     })),
   ];
@@ -172,13 +185,19 @@ const Index = () => {
             <Form.Item label="اسعار انتخاب کړئ" required>
               <Select
                 mode="multiple"
-                placeholder="څو اسعار انتخاب کړئ"
+                style={{ width: "100%" }}
+                placeholder="اسعار انتخاب کړئ"
                 onChange={onCurrencyChange}
                 value={selectedCurrencies}
+                optionLabelProp="display"
               >
-                {allCurrencies.map((cur) => (
-                  <Option key={cur} value={cur}>
-                    {cur}
+                {allCurrencies.map((currency, index) => (
+                  <Option
+                    key={`${currency.code}-${index}`}
+                    value={currency.code}
+                    display={currency.display}
+                  >
+                    {currency.display}
                   </Option>
                 ))}
               </Select>

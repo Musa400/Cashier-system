@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Button, Card, Form, Image, Input, message, Modal, Popconfirm, Select, Table } from 'antd'
-import { DeleteOutlined, DownloadOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, PrinterOutlined, SearchOutlined } from '@ant-design/icons'
 import { http, uploadFile, fetchData, trimData } from '../../../modules/modules'
+import dayjs from 'dayjs'
 import useSWR, { mutate } from 'swr'
 const { Item } = Form
 const { Option } = Select
 
-const ACCOUNT_TYPES = ['Bank', 'Store', 'Person'];
+const ACCOUNT_TYPES = ['Bank', 'Person'];
 
 const NewAccount = () => {
     // get userInfo from the session storage
@@ -22,6 +23,13 @@ const NewAccount = () => {
     const [allCustomer, setAllCustomer] = useState(null)
     const [finalCustomer, setFinalCustomer] = useState(null)
     const [edit, setEdit] = useState(null);
+
+    // transaction history Modal states
+    const [transactionHistoryModal, setTransactionHistoryModal] = useState(false);
+    const [transactionData, setTransactionData] = useState([]);
+    const [selectedCustomerName, setSelectedCustomerName] = useState("");
+    const [transactionLoading, setTransactionLoading] = useState(false);
+
 
     // get branding details
     const { data: brandings, error: bError } = useSWR(
@@ -557,6 +565,12 @@ const NewAccount = () => {
                     >
                         <Button type='text' className='!bg-rose-100 !text-rose-500' icon={<DeleteOutlined />} />
                     </Popconfirm>
+                    <Button 
+                    type ='text'
+                    className='!bg-blue-100 !text-yellow-500'
+                    icon={<AccountBookOutlined />}
+                    onClick={() => openTransactionHistory(obj)}
+                    />
                 </div>
             )
         },
@@ -569,6 +583,22 @@ const NewAccount = () => {
         setPhoto(null);
         setsignature(null);
         setDocument(null);
+    }
+
+    //fetch the transaction history for a customer
+    const openTransactionHistory = async (customer) => {
+        setSelectedCustomerName(`${customer.fullname} (${customer.accountNo})`);
+        setTransactionHistoryModal(true);
+        try {
+            const httpReq = http();
+            const  res = await httpReq.get(`/api/transaction/history/${customer._id}`);
+            setTransactionData(res.data.data || []);
+        }
+        catch{
+            messageApi.error("Unable to fetch transaction history !")
+            setTransactionData([]);
+
+        }
     }
 
     return (
@@ -626,7 +656,7 @@ const NewAccount = () => {
                         </Item>
                         <Item
                             label="Account Type"
-                            name="type"
+                            name="accountType"
                             rules={[{ required: true, message: 'Please select account type' }]}
                         >
                             <Select placeholder="Select account type">
@@ -688,6 +718,86 @@ const NewAccount = () => {
                     </Item>
                 </Form>
             </Modal>
+
+            
+            {/* Transaction History Modal */}
+            <Modal
+        title={
+        <div
+            style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                direction: "rtl", // Right-to-left for Pashto
+            }}
+        >
+            <span style={{ fontWeight: "bold" }}>
+                د راکړې ورکړې تاریخچه لپاره {selectedCustomerName}
+            </span>
+          <Button
+    icon={<PrinterOutlined />}
+   
+    style={{ direction: "ltr" }}
+/>
+
+        </div>
+    }
+    open={transactionHistoryModal}
+    onCancel={() => setTransactionHistoryModal(false)}
+    footer={[
+        <Button key="close" onClick={() => setTransactionHistoryModal(false)}>
+            Close
+        </Button>,
+    ]}
+    width={700}
+>
+    <div id="printArea">
+        {transactionLoading ? (
+            <div style={{ textAlign: "center", padding: 50 }}>
+                <Spin size="large" />
+            </div>
+        ) : transactionData.length === 0 ? (
+            <p>هیڅ راکړه ورکړه ونه موندل شوه.</p>
+        ) : (
+            <Table
+                columns={[
+                    {
+                        title: "نېټه",
+                        dataIndex: "createdAt",
+                        key: "createdAt",
+                        render: (date) => date ? dayjs(date).format("YYYY-MM-DD HH:mm:ss") : "N/A",
+                    },
+                    {
+                        title: "تفصیل",
+                        dataIndex: "reference",
+                        key: "reference",
+                    },
+                    {
+                        title: "Currency",
+                        dataIndex: "currency",
+                        key: "currency",
+                    },
+                    {
+                        title: "مقدار",
+                        dataIndex: "transactionAmount",
+                        key: "transactionAmount",
+                        render: (amount) => amount?.toLocaleString() || 0,
+                    },
+                    {
+                        title: "ډول",
+                        dataIndex: "transactionType",
+                        key: "transactionType",
+                        render: (type) => (type === "cr" ? "credit" : "debit"),
+                    },
+                ]}
+                dataSource={transactionData}
+                pagination={{ pageSize: 5 }}
+                rowKey={(item) => item._id || item.id || Math.random()}
+                size="small"
+            />
+        )}
+    </div>
+</Modal>
         </div>
     );
 }

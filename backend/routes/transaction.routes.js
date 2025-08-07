@@ -16,6 +16,9 @@ router.get('/pagination',(req,res)=>{
 router.get('/dashboard-stats', (req, res) => {
     controller.getDashboardStats(req, res, transactionSchema, Customer);
 });
+router.get("/history/:customerId", (req, res) => {
+    controller.getTransactionByCustomer(req, res, transactionSchema);
+});
 router.post('/',(req,res)=>{
     controller.createData(req,res,transactionSchema)
 })

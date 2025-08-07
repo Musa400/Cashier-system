@@ -8,7 +8,7 @@ const AdminDashboard = () => {
   //get UserInfo from sessionStorage
   const userInfo = JSON.parse(sessionStorage.getItem("userInfo"));
   const {data: trData, error:trError} = useSWR(
-    `/api/transaction/summary?branch=${userInfo.branch}`,
+    `/api/transaction/summary`,
     fetchData,
     {
       revalidateOnFocus:false,

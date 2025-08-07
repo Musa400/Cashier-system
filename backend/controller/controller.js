@@ -1,5 +1,8 @@
 const dbService = require('../services/db.service');
 const userSchema = require('../model/users.model');
+const Customer = require("../model/customer.model");
+const CashSummary = require("../model/CashierSummary");
+const Transactions = require("../model/transactionmodel");
 
 const getData = async (req, res, schema) => {
     try {
@@ -98,55 +101,139 @@ const findByAccountNo = async (req, res, schema) => {
     }
 }
 
+
+const getCurrencySummary = async (req, res) => {
+    try {
+        const personData = await Customer.aggregate([
+            { $match: { accountType: "person" } },
+            { $unwind: "$balances" },
+            {
+                $group: {
+                    _id: "$balances.currency",
+                    total: { $sum: "$balances.balance" }
+                }
+            }
+        ]);
+
+        const personSummary = {};
+        personData.forEach(item => {
+            personSummary[item._id] = item.total;
+        });
+
+
+        const cashData = await CashSummary.aggregate([
+            {
+                $group: {
+                    _id: "$currency",
+                    total: { $sum: "$amount" }
+                }
+            }
+        ]);
+
+        const cashSummary = {};
+        cashData.forEach(item => {
+            cashSummary[item._id] = item.total;
+        });
+
+        // 🔁 Step 3: Combine both into final result
+        const allCurrencies = new Set([
+            ...Object.keys(personSummary),
+            ...Object.keys(cashSummary),
+        ]);
+
+        const result = Array.from(allCurrencies).map(currency => ({
+            currency,
+            CustomerMoney: personSummary[currency] || 0,
+            OwnerMoney: cashSummary[currency] || 0,
+            TotalStoreMoney: (personSummary[currency] || 0) + (cashSummary[currency] || 0)
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Error fetching currency summary:", error);
+        res.status(500).json({ message: "Server Error", error });
+    }
+};
+
+const getBankCurrencyTotals = async (req, res) => {
+    try {
+        const result = await Customer.aggregate([
+            { $match: { accountType: "bank" } },
+            { $unwind: "$balances" },
+            {
+                $project: {
+                    fullname: 1,
+                    currency: "$balances.currency",
+                    balance: "$balances.balance"
+                }
+            }
+        ]);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Error in getBankCurrencyTotals:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+
+
+
+
 const getTransactionSummary = async (req, res, schema) => {
-    const { branch,accountNo } = req.query;
+    const { branch, accountNo } = req.query;
     let matchStage = {};
-    if(branch) matchStage.branch = branch;
-    if(accountNo) matchStage.accountNo = Number(accountNo);
+    if (branch) matchStage.branch = branch;
+    if (accountNo) matchStage.accountNo = Number(accountNo);
     console.log(matchStage)
     try {
         const summary = await schema.aggregate([
             {
-                $match :  matchStage 
+                $match: matchStage
             },
             {
-                $group : {
-                    _id : null,
-                    totalCredit : {
-                        $sum : {
-                            $cond : [{$eq:["$transactionType","cr"]},"$transactionAmount",0]
+                $group: {
+                    _id: null,
+                    totalCredit: {
+                        $sum: {
+                            $cond: [{ $eq: ["$transactionType", "cr"] }, "$transactionAmount", 0]
                         }
                     },
-                    totalDebit : {
-                        $sum : {
-                            $cond : [{$eq:["$transactionType","dr"]},"$transactionAmount",0]
+                    totalDebit: {
+                        $sum: {
+                            $cond: [{ $eq: ["$transactionType", "dr"] }, "$transactionAmount", 0]
                         }
                     },
-                    creditCount : {
-                        $sum : {
-                            $cond : [{$eq:["$transactionType","cr"]},1,0]
+                    creditCount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$transactionType", "cr"] }, 1, 0]
                         }
                     },
-                    debitCount : {
-                        $sum : {
-                            $cond : [{$eq:["$transactionType","dr"]},1,0]
+                    debitCount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$transactionType", "dr"] }, 1, 0]
                         }
                     },
-                    totalTransactions : {
-                        $sum : 1
+                    totalTransactions: {
+                        $sum: 1
                     }
-                    
+
                 }
             },
             {
-                $project : {
-                    _id : 0,
-                    totalCredit : 1,
-                    totalDebit : 1,
-                    totalTransactions : 1,
-                    debitCount :1,
-                    creditCount : 1,
-                    balance : {$subtract: ["$totalCredit","$totalDebit"]}
+                $group: {
+                    _id: null,
+                }
+
+            },
+            {
+                $project: {
+                    _id: 0,
+                    totalCredit: 1,
+                    totalDebit: 1,
+                    totalTransactions: 1,
+                    debitCount: 1,
+                    creditCount: 1,
+                    balance: { $subtract: ["$totalCredit", "$totalDebit"] }
                 }
 
             }
@@ -168,34 +255,34 @@ const getTransactionSummary = async (req, res, schema) => {
 
 }
 
-const getPaginatedTransactions = async (req,res,schema) => {
-  try {
-    const { accountNo, branch, page = 1, pageSize = 10 } = req.query;
+const getPaginatedTransactions = async (req, res, schema) => {
+    try {
+        const { accountNo, branch, page = 1, pageSize = 10 } = req.query;
 
-    const filter = {};
-    if (accountNo) filter.accountNo = accountNo;
-    if (branch) filter.branch = branch;
+        const filter = {};
+        if (accountNo) filter.accountNo = accountNo;
+        if (branch) filter.branch = branch;
 
-    const skip = (parseInt(page) - 1) * parseInt(pageSize);
-    const limit = parseInt(pageSize);
+        const skip = (parseInt(page) - 1) * parseInt(pageSize);
+        const limit = parseInt(pageSize);
 
-    const [transactions, total] = await Promise.all([
-      schema.find(filter)
-        .sort({ createdAt: -1 }) // Optional: newest first
-        .skip(skip)
-        .limit(limit),
-      schema.countDocuments(filter)
-    ]);
+        const [transactions, total] = await Promise.all([
+            schema.find(filter)
+                .sort({ createdAt: -1 }) // Optional: newest first
+                .skip(skip)
+                .limit(limit),
+            schema.countDocuments(filter)
+        ]);
 
-    res.status(200).json({
-      data: transactions,
-      total,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize)
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching transactions", error });
-  }
+        res.status(200).json({
+            data: transactions,
+            total,
+            page: parseInt(page),
+            pageSize: parseInt(pageSize)
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching transactions", error });
+    }
 };
 
 const getDashboardStats = async (req, res, transactionSchema, customerSchema) => {
@@ -209,15 +296,15 @@ const getDashboardStats = async (req, res, transactionSchema, customerSchema) =>
                         _id: null,
                         totalCredit: {
                             $sum: {
-                                $cond: [{$eq: ["$transactionType", "cr"]}, "$transactionAmount", 0]
+                                $cond: [{ $eq: ["$transactionType", "cr"] }, "$transactionAmount", 0]
                             }
                         },
                         totalDebit: {
                             $sum: {
-                                $cond: [{$eq: ["$transactionType", "dr"]}, "$transactionAmount", 0]
+                                $cond: [{ $eq: ["$transactionType", "dr"] }, "$transactionAmount", 0]
                             }
                         },
-                        totalTransactions: {$sum: 1}
+                        totalTransactions: { $sum: 1 }
                     }
                 },
                 {
@@ -226,11 +313,11 @@ const getDashboardStats = async (req, res, transactionSchema, customerSchema) =>
                         totalCredit: 1,
                         totalDebit: 1,
                         totalTransactions: 1,
-                        totalAmount: {$subtract: ["$totalCredit", "$totalDebit"]}
+                        totalAmount: { $subtract: ["$totalCredit", "$totalDebit"] }
                     }
                 }
             ]).exec(),
-            
+
             // Get total customer count
             customerSchema.countDocuments({})
         ]);
@@ -264,6 +351,40 @@ const getDashboardStats = async (req, res, transactionSchema, customerSchema) =>
     }
 };
 
+const getStoreAccount = async (req, res, schema) => {
+    try {
+        const storeAccount = await dbService.findOneRecord({ accountType: 'store' }, schema);
+        if (!storeAccount) {
+            return res.status(404).json({ message: "Store account not found!", success: false });
+        }
+        return res.status(200).json({ message: "Store account found!", data: storeAccount, success: true });
+    } catch (error) {
+        res.status(500).json({ message: "Internal server error", success: false, error });
+    }
+};
+
+const getTransactionByCustomer = async  (req, res, schema) => {
+    const {customerId} = req.params;
+    try{
+        const transactions = await schema.find({ customerId}).sort({createdAt: -1});
+        res.status(200).json({
+            message: "Customer Transaction history fetched!",
+            data: transactions,
+            success: true
+
+        })  
+     } catch (error){
+        res.status(500).json({
+            message: "Internal server error",
+            success: false,
+            error
+        });
+     }
+}
+
+
+
+
 module.exports = {
     createData,
     getData,
@@ -272,5 +393,9 @@ module.exports = {
     findByAccountNo,
     getTransactionSummary,
     getPaginatedTransactions,
-    getDashboardStats
+    getDashboardStats,
+    getStoreAccount,
+    getCurrencySummary,
+    getBankCurrencyTotals,
+    getTransactionByCustomer
 }

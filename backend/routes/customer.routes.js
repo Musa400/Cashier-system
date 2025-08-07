@@ -7,6 +7,14 @@ const customerSchema  = require("../model/customer.model");
 router.get('/',(req,res)=>{
     controller.getData(req,res,customerSchema)
 })
+
+router.get('/store-account', (req, res) => {
+    controller.getCurrencySummary(req, res);
+});
+router.get('/bank-account', (req, res) => {
+    controller.getBankCurrencyTotals(req, res);
+});
+
 router.post('/',(req,res)=>{
     controller.createData(req,res,customerSchema)
 })
