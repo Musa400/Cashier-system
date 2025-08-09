@@ -538,7 +538,7 @@ const NewAccount = () => {
         {
             title: "Action",
             key: "action",
-            fixed: "right",
+            fixed: "left",
             render: (_, obj) => (
                 <div className="flex gap-1">
                     <Popconfirm

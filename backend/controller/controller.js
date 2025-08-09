@@ -256,84 +256,84 @@ const getBankCurrencyTotals = async (req, res) => {
 };
 
 
-
-
-
-const getTransactionSummary = async (req, res, schema) => {
-    const { branch, accountNo } = req.query;
-    let matchStage = {};
-    if (branch) matchStage.branch = branch;
-    if (accountNo) matchStage.accountNo = Number(accountNo);
-    console.log(matchStage)
-    try {
-        const summary = await schema.aggregate([
-            {
-                $match: matchStage
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalCredit: {
-                        $sum: {
-                            $cond: [{ $eq: ["$transactionType", "cr"] }, "$transactionAmount", 0]
-                        }
-                    },
-                    totalDebit: {
-                        $sum: {
-                            $cond: [{ $eq: ["$transactionType", "dr"] }, "$transactionAmount", 0]
-                        }
-                    },
-                    creditCount: {
-                        $sum: {
-                            $cond: [{ $eq: ["$transactionType", "cr"] }, 1, 0]
-                        }
-                    },
-                    debitCount: {
-                        $sum: {
-                            $cond: [{ $eq: ["$transactionType", "dr"] }, 1, 0]
-                        }
-                    },
-                    totalTransactions: {
-                        $sum: 1
-                    }
-
-                }
-            },
-            {
-                $group: {
-                    _id: null,
-                }
-
-            },
-            {
-                $project: {
-                    _id: 0,
-                    totalCredit: 1,
-                    totalDebit: 1,
-                    totalTransactions: 1,
-                    debitCount: 1,
-                    creditCount: 1,
-                    balance: { $subtract: ["$totalCredit", "$totalDebit"] }
-                }
-
-            }
-        ]);
-        if (summary.length === 0) {
-            return res.status(404).json({
-                message: 'No matching transaction found'
-            });
-
-
+const getTransactionSummary = async (req, res) => {
+  try {
+    const summary = await Transactions.aggregate([
+      {
+        $lookup: {
+          from: "customers", // ستاسو د MongoDB د حسابونو مجموعه نوم
+          localField: "accountNo",
+          foreignField: "accountNo",
+          as: "accountData"
         }
-        res.status(200).json(summary[0])
+      },
+      { $unwind: "$accountData" },
+      {
+        $match: {
+          "accountData.accountType": "person"
+        }
+      },
+      {
+        $group: {
+          _id: { currency: "$currency", transactionType: "$transactionType" },
+          totalAmount: { $sum: "$transactionAmount" }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.currency",
+          data: {
+            $push: {
+              type: "$_id.transactionType",
+              amount: "$totalAmount"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          currency: "$_id",
+          _id: 0,
+          totalCredit: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$data",
+                    as: "item",
+                    cond: { $eq: ["$$item.type", "cr"] }
+                  }
+                },
+                as: "cr",
+                in: "$$cr.amount"
+              }
+            }
+          },
+          totalDebit: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$data",
+                    as: "item",
+                    cond: { $eq: ["$$item.type", "dr"] }
+                  }
+                },
+                as: "dr",
+                in: { $multiply: ["$$dr.amount", -1] }
+              }
+            }
+          }
+        }
+      }
+    ]);
 
-    } catch (error) {
-        res.status(500).json({
-            message: 'Error calculating summary', error
-        })
-    }
-
-}
+    res.status(200).json(summary);
+  } catch (error) {
+    console.error("Transaction summary error:", error);
+    res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
+};
 
 const getPaginatedTransactions = async (req, res, schema) => {
     try {
@@ -462,9 +462,6 @@ const getTransactionByCustomer = async  (req, res, schema) => {
      }
 }
 
-
-
-
 module.exports = {
     getData,
     createData,
@@ -476,5 +473,6 @@ module.exports = {
     getStoreAccount,
     getCurrencySummary,
     getBankCurrencyTotals,
-    getTransactionByCustomer
+    getTransactionByCustomer,
+    getTransactionSummary
 };

@@ -90,7 +90,7 @@ const Adminlayout = ({ children }) => {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
     return (
-        <Layout className='!min-h-screen'>
+        <Layout className='!min-h-screen' style={{direction:"rtl"}}>
             <Sider 
             trigger={null} 
             collapsible 
