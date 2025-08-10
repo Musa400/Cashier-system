@@ -12,6 +12,8 @@ import {
     LogoutOutlined,
     UserAddOutlined,
     PropertySafetyFilled,
+    SwapOutlined,
+    LineChartOutlined,
 } from '@ant-design/icons';
 import { Button, Layout, Menu, theme } from 'antd';
 import {Link, useLocation, useNavigate} from "react-router-dom";
@@ -37,6 +39,16 @@ const Adminlayout = ({ children }) => {
             key: '/admin',
             icon: <DashboardOutlined />,
             label: <Link to="/admin">Dashboard</Link>,
+        },
+        {
+            key: '/admin/exchange',
+            icon: <SwapOutlined />,
+            label: <Link to="/admin/exchange">Exchange</Link>,
+        },
+        {
+            key: '/admin/rate',
+            icon: <LineChartOutlined />,
+            label: <Link to="/admin/rate">Update Rate</Link>,
         },
         {
             key: '/admin/branding',

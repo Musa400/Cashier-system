@@ -3,6 +3,7 @@ import Guard from '../components/Gaurd'
 import { lazy, Suspense } from 'react'
 import Loader from '../components/Loader'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+
 const Homepage = lazy(()=>import("../components/Home"))
 const Dashboard = lazy(()=>import("../components/Admin"))
 const NewEmployee = lazy(()=>import("../components/Admin/NewEmployee"))
@@ -12,8 +13,10 @@ const Currency = lazy(()=>import("../components/Admin/Currency"))
 const EmployeeDashboard = lazy(()=>import("../components/Employee"))
 const AdminNewAccount = lazy(()=>import('../components/Admin/AdminNewAccount'))
 const EmpTransaction = lazy(()=>import('../components/Employee/EmpTransaction'))
+const AdminExchange = lazy(()=>import('../components/Admin/Exchange'))
 const EmpNewAccount = lazy(()=>import('../components/Employee/EmpNewAccount'))
 const AdminTransaction = lazy(()=>import('../components/Admin/Transaction'))
+const AdminRate = lazy(()=>import('../components/Admin/UpdateRate/index'))
 const CustomerDashboard = lazy(()=>import('../components/Customer/index'))
 const CustomerTransaction = lazy(()=>import('../components/Customer/Transaction/index'))
 const AdminProperty = lazy(()=>import('../components/Admin/MyMoney/index'))
@@ -32,6 +35,8 @@ const App = () => {
           <Dashboard />
         </Guard>}>
           <Route index element={<Dashboard />} />
+          <Route path='exchange' element={<AdminExchange />} />
+          <Route path='rate' element={<AdminRate />} />
           <Route path='new-employee' element={<NewEmployee />} />
           <Route path='branding' element={<Branding />} />
           <Route path='branch' element={<Branch />} />

@@ -19,6 +19,8 @@ const findByAccountRounter = require("./routes/findByAccount.routes")
 const TransactionRoute = require("./routes/transaction.routes")
 const balanceRouter = require("./routes/balance.routes")
 const cashSummaryRoutes = require("./routes/Cashier.summary.route");
+const exchangeRateRoutes = require('./routes/rate.route');
+const exchangeRoutes = require('./routes/Exchange');
 
 
 
@@ -77,7 +79,8 @@ app.use("/api/find-by-account",findByAccountRounter)
 app.use("/api/transaction",TransactionRoute)
 app.use("/api/balance",balanceRouter)
 app.use("/api/cash-summary", cashSummaryRoutes);
-
+app.use('/api/exchange-rate', exchangeRateRoutes);
+app.use('/api/exchange', exchangeRoutes);
 
 
 
