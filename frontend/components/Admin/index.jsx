@@ -114,7 +114,7 @@ const CurrencySummaryCard = () => {
  
 
 
-  <div className="flex gap-6">
+  <div className="flex flex-col gap-6 md:flex-row">
   {/* زه د خلکو پوروړی یم */}
   <Card
     title="زه د خلکو پوروړی یم"
@@ -178,36 +178,35 @@ const CurrencySummaryCard = () => {
   </Card>
 
   {/* ✅ Transaction Summary Card */}
-<Card className="flex-1 rounded-2xl shadow-md p-6">
-  <h3 className="text-lg font-semibold mb-4 text-center">د معاملو لنډيز</h3>
-  <div className="overflow-x-auto">
-    <table className="min-w-full border text-left text-sm">
-      <thead className="bg-gray-100">
-        <tr>
-          <th className="py-2 px-3 border-b">تشريح</th>
-          <th className="py-2 px-3 border-b text-right">شمېر</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr className="hover:bg-blue-50 transition-colors duration-200">
-          <td className="py-2 px-3 border-b">ټولې معاملې</td>
-          <td className="py-2 px-3 border-b font-bold text-right text-blue-700">{transactionTotalTransactions}</td>
-        </tr>
-        <tr className="hover:bg-green-50 transition-colors duration-200">
-          <td className="py-2 px-3 border-b">Total Credit</td>
-          <td className="py-2 px-3 border-b font-semibold text-right text-green-700">{transactionSummary?.creditCount || 0}</td>
-        </tr>
-        <tr className="hover:bg-red-50 transition-colors duration-200">
-          <td className="py-2 px-3 border-b">د لګښت ټولې معاملې</td>
-          <td className="py-2 px-3 border-b font-semibold text-right text-red-700">{transactionSummary?.debitCount || 0}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</Card>
-
-
+  <Card className="flex-1 rounded-2xl shadow-md p-6">
+    <h3 className="text-lg font-semibold mb-4 text-center">د معاملو لنډيز</h3>
+    <div className="overflow-x-auto">
+      <table className="min-w-full border text-left text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="py-2 px-3 border-b">تشريح</th>
+            <th className="py-2 px-3 border-b text-right">شمېر</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="hover:bg-blue-50 transition-colors duration-200">
+            <td className="py-2 px-3 border-b">ټولې معاملې</td>
+            <td className="py-2 px-3 border-b font-bold text-right text-blue-700">{transactionTotalTransactions}</td>
+          </tr>
+          <tr className="hover:bg-green-50 transition-colors duration-200">
+            <td className="py-2 px-3 border-b">Total Credit</td>
+            <td className="py-2 px-3 border-b font-semibold text-right text-green-700">{transactionSummary?.creditCount || 0}</td>
+          </tr>
+          <tr className="hover:bg-red-50 transition-colors duration-200">
+            <td className="py-2 px-3 border-b">د لګښت ټولې معاملې</td>
+            <td className="py-2 px-3 border-b font-semibold text-right text-red-700">{transactionSummary?.debitCount || 0}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </Card>
 </div>
+
 
 
       {!loadingStore && !loadingBank && (
