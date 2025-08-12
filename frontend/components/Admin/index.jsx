@@ -194,7 +194,7 @@ const CurrencySummaryCard = () => {
           <td className="py-2 px-3 border-b font-bold text-right text-blue-700">{transactionTotalTransactions}</td>
         </tr>
         <tr className="hover:bg-green-50 transition-colors duration-200">
-          <td className="py-2 px-3 border-b">د عایداتو ټولې معاملې</td>
+          <td className="py-2 px-3 border-b">Total Credit</td>
           <td className="py-2 px-3 border-b font-semibold text-right text-green-700">{transactionSummary?.creditCount || 0}</td>
         </tr>
         <tr className="hover:bg-red-50 transition-colors duration-200">
@@ -211,38 +211,9 @@ const CurrencySummaryCard = () => {
 
 
       {!loadingStore && !loadingBank && (
-  <div className="flex gap-6">
+  <div className="">
     {/* Store Totals Card */}
-    <Card
-      title="📊 دوکان نقدی پیسی"
-      className="rounded-2xl shadow-md border border-gray-100 flex-1"
-      style={{ backgroundColor: "#fefefe" }}
-      headStyle={{ fontSize: 18, fontWeight: 600 }}
-    >
-      <div className="overflow-x-auto">
-        <table className="min-w-full border text-left text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="py-2 px-3 border-b">Currency</th>
-              <th className="py-2 px-3 border-b">Store Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(storeTotals).map(([currency, total], index) => (
-              <tr
-                key={index}
-                className="hover:bg-blue-50 transition-colors duration-200"
-              >
-                <td className="py-2 px-3 border-b">{currency}</td>
-                <td className="py-2 px-3 border-b font-medium text-black">
-                  {format(total)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    
 
     {/* Combined Totals Card */}
     <Card
@@ -280,60 +251,87 @@ const CurrencySummaryCard = () => {
 
 
       <Card
-        title="🏦 د بانک مالی لنډیز "
-        className="rounded-2xl shadow-md border border-gray-100"
-        style={{ backgroundColor: "#f9fbff" }}
-        headStyle={{ fontSize: 18, fontWeight: 600 }}
-      >
-        {loadingBank ? (
-          <div className="text-center py-10">
-            <Spin size="large" />
-          </div>
-        ) : Object.keys(bankGroupedData).length === 0 ? (
-          <p className="text-center text-gray-500 py-6">No bank data available</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.entries(bankGroupedData).map(([bankName, currencies], index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-4 shadow hover:shadow-md transition-all"
-              >
-                <Title level={5} className="mb-4">
-                  🏦 {bankName}
-                </Title>
+  title="🏦 د بانک + دوکان مالی لنډیز"
+  className="rounded-2xl shadow-md border border-gray-100"
+  style={{ backgroundColor: "#f9fbff" }}
+  headStyle={{ fontSize: 18, fontWeight: 600 }}
+>
+  {loadingBank || loadingStore ? (
+    <div className="text-center py-10">
+      <Spin size="large" />
+    </div>
+  ) : Object.keys(bankGroupedData).length === 0 && Object.keys(storeTotals).length === 0 ? (
+    <p className="text-center text-gray-500 py-6">No data available</p>
+  ) : (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+      {/* Store Totals Section */}
+      <div className="bg-white rounded-xl p-4 shadow hover:shadow-md transition-all">
+        <Title level={5} className="mb-4">📊 دوکان نقدی پیسی</Title>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border text-left text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-2 px-3 border-b">Currency</th>
+                <th className="py-2 px-3 border-b">Store Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(storeTotals).map(([currency, total], index) => (
+                <tr
+                  key={index}
+                  className="hover:bg-blue-50 transition-colors duration-200"
+                >
+                  <td className="py-2 px-3 border-b">{currency}</td>
+                  <td className="py-2 px-3 border-b font-medium text-black">
+                    {format(total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
-                 <table className="min-w-full border text-left text-sm">
-  <thead className="bg-gray-100">
-    <tr>
-      <th className="py-2 px-3 border-b">#</th>
-      <th className="py-2 px-3 border-b">Currency</th>
-      <th className="py-2 px-3 border-b">Balance</th>
-    </tr>
-  </thead>
-  <tbody>
-    {currencies.map((item, i) => (
-      <tr
-        key={i}
-        className="hover:bg-blue-50 transition-colors duration-200"
-      >
-        <td className="py-2 px-3 border-b">{i + 1}</td>
-        <td className="py-2 px-3 border-b">{item.currency}</td>
-        <td className="py-2 px-3 border-b font-medium text-right">
-          {format(item.balance)}
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
-
-                </div>
-              </div>
-            ))}
+      {/* Bank Data Section */}
+      {Object.entries(bankGroupedData).map(([bankName, currencies], index) => (
+        <div
+          key={index}
+          className="bg-white rounded-xl p-4 shadow hover:shadow-md transition-all"
+        >
+          <Title level={5} className="mb-4">🏦 {bankName}</Title>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border text-left text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="py-2 px-3 border-b">#</th>
+                  <th className="py-2 px-3 border-b">Currency</th>
+                  <th className="py-2 px-3 border-b">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currencies.map((item, i) => (
+                  <tr
+                    key={i}
+                    className="hover:bg-blue-50 transition-colors duration-200"
+                  >
+                    <td className="py-2 px-3 border-b">{i + 1}</td>
+                    <td className="py-2 px-3 border-b">{item.currency}</td>
+                    <td className="py-2 px-3 border-b font-medium text-right">
+                      {format(item.balance)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </Card>
+        </div>
+      ))}
+
+    </div>
+  )}
+</Card>
+
 
 
   

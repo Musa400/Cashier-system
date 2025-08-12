@@ -452,6 +452,24 @@ const getTransactionByCustomer = async  (req, res, schema) => {
         });
      }
 }
+const getExchangeByCustomer = async  (req, res, schema) => {
+    const {customerId} = req.params;
+    try{
+        const exchange = await schema.find({ customerId}).sort({createdAt: -1});
+        res.status(200).json({
+            message: "Customer Exchange history fetched!",
+            data: exchange,
+            success: true
+
+        })  
+     } catch (error){
+        res.status(500).json({
+            message: "Internal server error",
+            success: false,
+            error
+        });
+     }
+}
 
 module.exports = {
     getData,
@@ -465,5 +483,6 @@ module.exports = {
     getCurrencySummary,
     getBankCurrencyTotals,
     getTransactionByCustomer,
-    getTransactionSummary
+    getTransactionSummary,
+    getExchangeByCustomer
 };

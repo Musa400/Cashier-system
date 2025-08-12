@@ -1,5 +1,6 @@
 const Exchange = require('../model/Exchange');
 const ExchangeRate = require('../model/Rate');
+const Customer = require('../model/customer.model');
 
 // Create new exchange
 exports.createExchange = async (req, res) => {
@@ -22,30 +23,76 @@ exports.createExchange = async (req, res) => {
       });
     }
 
+    const amountNum = parseFloat(amount);
+    const rateNum = parseFloat(rate);
+    const convertedAmount = amountNum * rateNum;
+
+    // Find the customer
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Customer not found' 
+      });
+    }
+
+    // Create a copy of the customer for comparison
+    const originalCustomer = JSON.parse(JSON.stringify(customer));
+
+    // Find the source currency balance
+    const sourceBalance = customer.balances.find(b => b.currency === fromCurrency);
+    if (!sourceBalance || sourceBalance.balance < amountNum) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Insufficient balance in ${fromCurrency} account` 
+      });
+    }
+
+    // Find or create target currency balance
+    let targetBalance = customer.balances.find(b => b.currency === toCurrency);
+    if (!targetBalance) {
+      // If target currency doesn't exist, create it with 0 balance
+      targetBalance = { currency: toCurrency, balance: 0 };
+      customer.balances.push(targetBalance);
+    }
+
+    // Update balances
+    sourceBalance.balance = parseFloat((sourceBalance.balance - amountNum).toFixed(2));
+    targetBalance.balance = parseFloat((targetBalance.balance + convertedAmount).toFixed(2));
+
     // Create the exchange record
     const exchange = new Exchange({
       customerId,
       customerName,
       fromCurrency,
       toCurrency,
-      amount: parseFloat(amount),
-      rate: parseFloat(rate),
+      amount: amountNum,
+      rate: rateNum,
+      convertedAmount: convertedAmount,
       createdBy: createdBy || 'System',
       date: new Date()
     });
 
+    // Save the exchange record first
     await exchange.save();
+    
+    // Then save the customer with updated balances
+    await customer.save();
 
     res.json({ 
       success: true, 
-      message: 'Exchange created successfully',
-      data: exchange 
+      message: 'Currency exchange completed successfully',
+      data: {
+        exchange,
+        newSourceBalance: sourceBalance.balance,
+        newTargetBalance: targetBalance.balance
+      }
     });
   } catch (error) {
-    console.error('Error creating exchange:', error);
+    console.error('Error in currency exchange:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Server error',
+      message: 'Failed to process currency exchange',
       error: error.message 
     });
   }

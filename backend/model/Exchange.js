@@ -27,6 +27,10 @@ const ExchangeSchema = new mongoose.Schema({
     type: Number, 
     required: true 
   },
+  convertedAmount: {
+    type: Number,
+    required: true
+  },
   createdBy: { 
     type: String, 
     required: true 
@@ -35,6 +39,6 @@ const ExchangeSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Exchange', ExchangeSchema);

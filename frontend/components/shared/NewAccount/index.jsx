@@ -7,7 +7,7 @@ import useSWR, { mutate } from 'swr'
 const { Item } = Form
 const { Option } = Select
 
-const ACCOUNT_TYPES = ['Bank', 'Person'];
+const ACCOUNT_TYPES = ['Bank', 'Person',"Earn","Expense"];
 
 const NewAccount = () => {
     // get userInfo from the session storage
@@ -25,10 +25,16 @@ const NewAccount = () => {
     const [edit, setEdit] = useState(null);
 
     // transaction history Modal states
-    const [transactionHistoryModal, setTransactionHistoryModal] = useState(false);
-    const [transactionData, setTransactionData] = useState([]);
-    const [selectedCustomerName, setSelectedCustomerName] = useState("");
-    const [transactionLoading, setTransactionLoading] = useState(false);
+      const [transactionHistoryModal, setTransactionHistoryModal] = useState(false)
+  const [transactionData, setTransactionData] = useState([])
+  const [transactionLoading, setTransactionLoading] = useState(false)
+
+  const [exchangeData, setExchangeData] = useState([])
+  const [exchangeLoading, setExchangeLoading] = useState(false)
+
+  const [selectedCustomerName, setSelectedCustomerName] = useState("")
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null)
+  const [showingExchange, setShowingExchange] = useState(false)
 
 
     // get branding details
@@ -59,7 +65,15 @@ const NewAccount = () => {
                 const httpReq = http();
                 const { data } = await httpReq.get("/api/customers");
                 // Filter by user branch
-                const filtered = data?.data?.filter((item) => item.branch === userInfo.branch);
+              let filtered;
+
+if (userInfo.userType === "admin") {
+  // Admin sees all data
+  filtered = data?.data;
+} else {
+  // Employee sees only their branch data
+  filtered = data?.data?.filter((item) => item.branch === userInfo.branch);
+}
                 setAllCustomer(filtered);
                 setFinalCustomer(filtered);
             } catch (err) {
@@ -586,20 +600,38 @@ const NewAccount = () => {
     }
 
     //fetch the transaction history for a customer
-    const openTransactionHistory = async (customer) => {
-        setSelectedCustomerName(`${customer.fullname} (${customer.accountNo})`);
-        setTransactionHistoryModal(true);
-        try {
-            const httpReq = http();
-            const  res = await httpReq.get(`/api/transaction/history/${customer._id}`);
-            setTransactionData(res.data.data || []);
-        }
-        catch{
-            messageApi.error("Unable to fetch transaction history !")
-            setTransactionData([]);
+   const openTransactionHistory = async (customer) => {
+    setSelectedCustomerName(`${customer.fullname} (${customer.accountNo})`)
+    setSelectedCustomerId(customer._id)
+    setTransactionHistoryModal(true)
+    setShowingExchange(false) // start with Transaction history
 
-        }
+    // fetch transaction history
+    setTransactionLoading(true)
+    try {
+      const httpReq = http()
+      const transRes = await httpReq.get(`/api/transaction/history/${customer._id}`)
+      setTransactionData(transRes.data.data || [])
+    } catch {
+      messageApi.error("راکړه ورکړه تاریخچه راټولول ممکن نه و!")
+      setTransactionData([])
+    } finally {
+      setTransactionLoading(false)
     }
+
+    // fetch exchange history
+    setExchangeLoading(true)
+    try {
+      const httpReq = http()
+      const exchRes = await httpReq.get(`/api/exchange/historys/${customer._id}`)
+      setExchangeData(exchRes.data.data || [])
+    } catch {
+      messageApi.error("د تبادلې تاریخچه راټولول ممکن نه و!")
+      setExchangeData([])
+    } finally {
+      setExchangeLoading(false)
+    }
+  }
 
     return (
         <div>
@@ -721,84 +753,102 @@ const NewAccount = () => {
             </Modal>
 
             
-            {/* Transaction History Modal */}
-            <Modal
+      {/* Transaction & Exchange History Modal */}
+      <Modal
         title={
-        <div
+          <div
             style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                direction: "rtl", // Right-to-left for Pashto
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              direction: "rtl",
+              gap: "10px"
             }}
-        >
+          >
             <span style={{ fontWeight: "bold" }}>
-                د راکړې ورکړې تاریخچه لپاره {selectedCustomerName}
+              {showingExchange ? "د تبادلې تاریخچه لپاره " : "د راکړې ورکړې تاریخچه لپاره "} {selectedCustomerName}
             </span>
-          <Button
-    icon={<PrinterOutlined />}
-   
-    style={{ direction: "ltr" }}
-/>
-
-        </div>
-    }
-    open={transactionHistoryModal}
-    onCancel={() => setTransactionHistoryModal(false)}
-    footer={[
-        <Button key="close" onClick={() => setTransactionHistoryModal(false)}>
-            Close
-        </Button>,
-    ]}
-    width={700}
->
-    <div id="printArea">
-        {transactionLoading ? (
-            <div style={{ textAlign: "center", padding: 50 }}>
-                <Spin size="large" />
-            </div>
-        ) : transactionData.length === 0 ? (
-            <p>هیڅ راکړه ورکړه ونه موندل شوه.</p>
-        ) : (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => setShowingExchange(!showingExchange)}
+            >
+              {showingExchange ? "Transaction" : "Exchange"}
+            </Button>
+            <Button icon={<PrinterOutlined />} style={{ direction: "ltr" }} />
+          </div>
+        }
+        open={transactionHistoryModal}
+        onCancel={() => {
+          setTransactionHistoryModal(false)
+          setShowingExchange(false)
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setTransactionHistoryModal(false)
+            setShowingExchange(false)
+          }}>
+            بندول
+          </Button>
+        ]}
+        width={700}
+      >
+        <div id="printArea">
+          {showingExchange ? (
             <Table
-                columns={[
-                    {
-                        title: "نېټه",
-                        dataIndex: "createdAt",
-                        key: "createdAt",
-                        render: (date) => date ? dayjs(date).format("YYYY-MM-DD HH:mm:ss") : "N/A",
-                    },
-                    {
-                        title: "تفصیل",
-                        dataIndex: "reference",
-                        key: "reference",
-                    },
-                    {
-                        title: "Currency",
-                        dataIndex: "currency",
-                        key: "currency",
-                    },
-                    {
-                        title: "مقدار",
-                        dataIndex: "transactionAmount",
-                        key: "transactionAmount",
-                        render: (amount) => amount?.toLocaleString() || 0,
-                    },
-                    {
-                        title: "ډول",
-                        dataIndex: "transactionType",
-                        key: "transactionType",
-                        render: (type) => (type === "cr" ? "credit" : "debit"),
-                    },
-                ]}
-                dataSource={transactionData}
-                pagination={{ pageSize: 5 }}
-                rowKey={(item) => item._id || item.id || Math.random()}
-                size="small"
+              loading={exchangeLoading}
+              dataSource={exchangeData}
+              rowKey="_id"
+              pagination={{ pageSize: 5 }}
+              columns={[
+                { title: "له کومې اسعار", dataIndex: "fromCurrency", key: "fromCurrency" },
+                { title: "څخه کومې اسعار", dataIndex: "toCurrency", key: "toCurrency" },
+                { title: "مقدار", dataIndex: "amount", key: "amount" },
+                { title: "نرخ", dataIndex: "rate", key: "rate" },
+                { title: "تبدیل شوی مقدار", dataIndex: "convertedAmount", key: "convertedAmount" },
+                {
+                  title: "نېټه",
+                  dataIndex: "date",
+                  key: "date",
+                  render: (date) => dayjs(date).format("YYYY-MM-DD HH:mm"),
+                },
+              ]}
+              size="small"
             />
-        )}
-    </div>
-</Modal>
+          ) : (
+            <Table
+              loading={transactionLoading}
+              dataSource={transactionData}
+              rowKey="_id"
+              pagination={{ pageSize: 5 }}
+              columns={[
+                {
+                  title: "نېټه",
+                  dataIndex: "createdAt",
+                  key: "createdAt",
+                  render: (date) => date ? dayjs(date).format("YYYY-MM-DD HH:mm:ss") : "N/A",
+                },
+                { title: "تفصیل", dataIndex: "reference", key: "reference" },
+                { title: "Currency", dataIndex: "currency", key: "currency" },
+                {
+                  title: "مقدار",
+                  dataIndex: "transactionAmount",
+                  key: "transactionAmount",
+                  render: (amount) => amount?.toLocaleString() || 0,
+                },
+                {
+                  title: "ډول",
+                  dataIndex: "transactionType",
+                  key: "transactionType",
+                  render: (type) => (type === "cr" ? "credit" : "debit"),
+                },
+              ]}
+              size="small"
+            />
+          )}
+        </div>
+      </Modal>
+
         </div>
     );
 }
