@@ -14,7 +14,7 @@ import { http } from "../../../modules/modules";
 import AdminLayout from "../../Layout/Adminlayout";
 const { Option } = Select;
 
-const Index = () => {
+const AdminProperty = () => {
   const [form] = Form.useForm();
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -227,4 +227,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default AdminProperty;
