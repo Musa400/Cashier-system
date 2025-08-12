@@ -11,7 +11,7 @@ import {
   message,
 } from "antd";
 import { http } from "../../../modules/modules";
-import AdminLayout from "../../Layout/Adminlayout";
+import AdminLayout from "../../layout/Adminlayout/index";
 const { Option } = Select;
 
 const AdminProperty = () => {
