@@ -25,37 +25,30 @@ const exchangeRoutes = require('./routes/Exchange');
 
 
 const app = express();
-// Allowed origins for CORS
-const allowedOrigins = [
-  "https://sami-cashier.netlify.app",
-  "http://localhost:3000"  // For local development
-];
 
-app.use(cors({
-  origin: function(origin, callback) {
-    // allow requests with no origin (like Postman, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = "The CORS policy for this site does not allow access from the specified Origin.";
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+// Enable CORS with specific configuration
+const corsOptions = {
+  origin: 'https://sami-cashier.netlify.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true
-}));
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
 
-// Enable preflight across all routes
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-
-// CORS configuration
-
-
-// Handle preflight requests
 
 app.use(logger('dev'));
 app.use(express.json());
