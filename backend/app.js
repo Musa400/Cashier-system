@@ -27,7 +27,8 @@ const exchangeRoutes = require('./routes/Exchange');
 const app = express();
 // Allowed origins for CORS
 const allowedOrigins = [
-"https://sami-cashier.netlify.app/"
+  "https://sami-cashier.netlify.app",
+  "http://localhost:3000"  // For local development
 ];
 
 app.use(cors({
