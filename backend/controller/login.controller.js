@@ -1,5 +1,5 @@
 const dbService = require("../services/db.service");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 require("dotenv").config();
 const jwt  = require("jsonwebtoken");
 const Customers = require("../model/customer.model")
