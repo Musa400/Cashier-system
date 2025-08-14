@@ -11,6 +11,7 @@ const Branding = lazy(()=>import("../components/Admin/Barnding"))
 const Branch = lazy(()=>import("../components/Admin/Branch"))
 const Currency = lazy(()=>import("../components/Admin/Currency"))
 const EmployeeDashboard = lazy(()=>import("../components/Employee"))
+const EmployeeExchange = lazy(()=>import("../components/Employee/Exchange"))
 const AdminNewAccount = lazy(()=>import('../components/Admin/AdminNewAccount'))
 const EmpTransaction = lazy(()=>import('../components/Employee/EmpTransaction'))
 const AdminExchange = lazy(()=>import('../components/Admin/Exchange'))
@@ -55,6 +56,7 @@ const App = () => {
           <Route index element={<EmployeeDashboard />} />
           <Route path='new-account' element={<EmpNewAccount />} />
           <Route path='new-transaction' element={<EmpTransaction />} />
+          <Route path='exchange' element={<EmployeeExchange />} />
           <Route path='*' element={<PageNotFound />} />
         </Route>
         {/* End employee related routes */}

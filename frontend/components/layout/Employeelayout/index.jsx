@@ -10,6 +10,7 @@ import {
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    SyncOutlined,
     UploadOutlined,
     UserOutlined,
     VideoCameraOutlined,
@@ -33,6 +34,11 @@ const Employeelayout = ({ children }) => {
             key: '/employee',
             icon: <DashboardOutlined />,
             label: <Link to='/employee'>Dashboard</Link>,
+        },
+        {
+            key: '/employee/exchange',
+            icon: <SyncOutlined />,
+            label: <Link to='/employee/exchange'>Exchange</Link>,
         },
         {
             key: '/employee/new-account',

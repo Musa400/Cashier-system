@@ -140,6 +140,7 @@ const RatePage = () => {
         </Button>
 
         <Table
+        scroll={{ x: "max-content" }}
           columns={columns}
           dataSource={rates}
           rowKey={(record) => `${record.fromCurrency}-${record.toCurrency}`}

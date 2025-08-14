@@ -1,6 +1,7 @@
 const Exchange = require('../model/Exchange');
 const ExchangeRate = require('../model/Rate');
 const Customer = require('../model/customer.model');
+const { sendExchangeConfirmationEmail } = require('./email.controller');
 
 // Create new exchange
 exports.createExchange = async (req, res) => {
@@ -12,7 +13,8 @@ exports.createExchange = async (req, res) => {
       toCurrency, 
       amount, 
       rate, 
-      createdBy 
+      createdBy,
+      customerEmail 
     } = req.body;
 
     // Validate required fields
@@ -79,7 +81,8 @@ exports.createExchange = async (req, res) => {
     // Then save the customer with updated balances
     await customer.save();
 
-    res.json({ 
+    // Prepare the response data
+    const responseData = { 
       success: true, 
       message: 'Currency exchange completed successfully',
       data: {
@@ -87,7 +90,47 @@ exports.createExchange = async (req, res) => {
         newSourceBalance: sourceBalance.balance,
         newTargetBalance: targetBalance.balance
       }
-    });
+    };
+
+    // Send email confirmation if customer email is provided
+    if (customerEmail) {
+      // Create a fake response object to capture the email sending result
+      const fakeRes = {
+        status: function(code) { this.statusCode = code; return this; },
+        json: function(data) {
+          if (this.statusCode === 200) {
+            console.log('Exchange confirmation email sent successfully');
+          } else {
+            console.error('Failed to send exchange confirmation email:', data);
+          }
+          // Send the original response
+          res.status(200).json(responseData);
+        }
+      };
+
+      // Call the email function with the fake response
+      sendExchangeConfirmationEmail(
+        { 
+          body: { 
+            toEmail: customerEmail,
+            exchangeData: {
+              accountNo: customer.accountNo,
+              customerName: customerName,
+              fromCurrency: fromCurrency,
+              toCurrency: toCurrency,
+              amount: amountNum,
+              convertedAmount: convertedAmount,
+              rate: rateNum,
+              date: exchange.date
+            }
+          } 
+        },
+        fakeRes
+      );
+    } else {
+      // If no email, just send the response
+      res.status(200).json(responseData);
+    }
   } catch (error) {
     console.error('Error in currency exchange:', error);
     res.status(500).json({ 

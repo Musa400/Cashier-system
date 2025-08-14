@@ -22,28 +22,28 @@ const CurrencyExchange = () => {
   const userInfo = JSON.parse(sessionStorage.getItem("userInfo"))
 
   const columns = [
-    { title: 'Customer', dataIndex: 'customerName', key: 'customerName' },
-    { title: 'From', dataIndex: 'fromCurrency', key: 'fromCurrency' },
-    { title: 'To', dataIndex: 'toCurrency', key: 'toCurrency' },
+    { title: ' مشتری نوم', dataIndex: 'customerName', key: 'customerName' },
+    { title: 'له کوم اسعار څخه  ', dataIndex: 'fromCurrency', key: 'fromCurrency' },
+    { title: 'کوم اسعار ته', dataIndex: 'toCurrency', key: 'toCurrency' },
     { 
-      title: 'Amount', 
+      title: 'اندازه', 
       dataIndex: 'amount', 
       key: 'amount',
       render: amount => Math.round(amount)
     },
     { 
-      title: 'Rate', 
+      title: ' تبادلې نرخ', 
       dataIndex: 'rate', 
       key: 'rate',
       render: rate => Math.round(rate * 1000) / 1000 // Show up to 3 decimal places for rate
     },
     { 
-      title: 'Converted Amount', 
+      title: ' تبادلې شوی اندازه', 
       dataIndex: 'convertedAmount', 
       key: 'convertedAmount',
       render: amount => amount ? Math.round(amount) : ''
     },
-    { title: 'Date', dataIndex: 'date', key: 'date' },
+    { title: 'نېټه', dataIndex: 'date', key: 'date' },
     { title: 'Created By', dataIndex: 'createdBy', key: 'createdBy' },
   ];
 
@@ -140,7 +140,32 @@ const CurrencyExchange = () => {
       rate => rate.fromCurrency === from && rate.toCurrency === to
     );
     
-    return rateObj ? rateObj[`${type}Rate`] || rateObj.rate : null;
+    if (!rateObj) return null;
+    
+    // If we have a direct rate, return it
+    const directRate = rateObj[`${type}Rate`] || rateObj.rate;
+    if (directRate) return directRate;
+    
+    // If no direct rate, try to find a reverse rate and calculate the inverse
+    const reverseRateObj = exchangeRates.find(
+      rate => rate.fromCurrency === to && rate.toCurrency === from
+    );
+    
+    if (reverseRateObj) {
+      const reverseRate = reverseRateObj[`${type}Rate`] || reverseRateObj.rate;
+      if (reverseRate) return 1 / reverseRate;
+    }
+    
+    return null;
+  };
+
+  const formatRateForDisplay = (rate, fromCurrency, toCurrency) => {
+    // For AFN to other currencies, show as 1 AFN = X [CURRENCY]
+    // For other currencies to AFN, show as 1 [CURRENCY] = X AFN
+    if (fromCurrency === 'AFN' || toCurrency === 'AFN') {
+      return rate.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 6 });
+    }
+    return rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   };
 
   const handleValuesChange = (changedValues, allValues) => {
@@ -214,7 +239,16 @@ const CurrencyExchange = () => {
 
       // Parse and validate amount and rate
       const amount = parseFloat(values.amount);
-      const rate = parseFloat(values.rate);
+      let rate = parseFloat(values.rate);
+      
+      // If converting from AFN to another currency, ensure rate is for 1 AFN
+      if (values.fromCurrency === 'AFN' && values.toCurrency !== 'AFN') {
+        // Rate should already be for 1 AFN = X [CURRENCY]
+      } 
+      // If converting to AFN from another currency, ensure rate is for 1 [CURRENCY]
+      else if (values.toCurrency === 'AFN' && values.fromCurrency !== 'AFN') {
+        // No conversion needed as rate is already 1 [CURRENCY] = X AFN
+      }
       
       if (isNaN(amount) || amount <= 0) {
         throw new Error('Please enter a valid amount');
@@ -224,14 +258,16 @@ const CurrencyExchange = () => {
         throw new Error('Invalid exchange rate');
       }
 
-      // Prepare the exchange data
+      // Prepare the exchange data with the correct rate format
       const exchangeData = {
         customerId: selectedCustomer._id,
         customerName: selectedCustomer.fullname || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim(),
+        customerEmail: selectedCustomer.email ? selectedCustomer.email.trim() : null,
         fromCurrency: values.fromCurrency,
         toCurrency: values.toCurrency,
         amount: amount,
         rate: rate,
+        convertedAmount: (amount * rate).toFixed(2),
         createdBy: userInfo?.email || 'System',
         date: new Date()
       };
@@ -291,7 +327,7 @@ const CurrencyExchange = () => {
     >
       <Form.Item
         name="customerId"
-        label="Select Customer"
+        label="مشتری انتخاب کړی"
         rules={[{ required: true, message: 'Please select a customer' }]}
       >
         <Select
@@ -337,7 +373,7 @@ const CurrencyExchange = () => {
       <div style={{ display: 'flex', gap: '16px' }}>
         <Form.Item
           name="fromCurrency"
-          label="From Currency"
+          label="له کوم اسعار څخه "
           rules={[{ required: true, message: 'Please select source currency' }]}
           style={{ flex: 1 }}
         >
@@ -370,7 +406,7 @@ const CurrencyExchange = () => {
 
         <Form.Item
           name="toCurrency"
-          label="To Currency"
+          label="کومه اسعار ته"
           rules={[{ required: true, message: 'Please select target currency' }]}
           style={{ flex: 1 }}
         >
@@ -386,7 +422,7 @@ const CurrencyExchange = () => {
 
       <Form.Item
         name="rateType"
-        label="Rate Type"
+        label="د نرخ ډول"
         rules={[{ required: true, message: 'Please select rate type' }]}
       >
         <Select placeholder="Select rate type">
@@ -448,13 +484,13 @@ const CurrencyExchange = () => {
       </Form.Item>
 
       {convertedAmount && (
-        <div style={{ marginTop: '16px', padding: '12px', background: '#f6ffed', borderRadius: '4px' }}>
+        <div style={{ marginTop: '16px', padding: '12px', background: '#f6ffed', borderRadius: '4px', direction: 'rtl' }}>
           <Text strong>
-            {Math.round(form.getFieldValue('amount'))} {form.getFieldValue('fromCurrency')} = {Math.round(convertedAmount)} {form.getFieldValue('toCurrency')}
+            {parseInt(form.getFieldValue('amount')).toLocaleString()} {form.getFieldValue('fromCurrency')} = {form.getFieldValue('toCurrency')} {parseFloat(convertedAmount).toLocaleString(undefined, {maximumFractionDigits: 2})}
           </Text>
           {form.getFieldValue('fromCurrency') && form.getFieldValue('toCurrency') && (
             <div style={{ color: '#666', marginTop: '4px' }}>
-              Rate: 1 {form.getFieldValue('fromCurrency')} = {form.getFieldValue('rate')} {form.getFieldValue('toCurrency')}
+              Rate: {formatRateForDisplay(form.getFieldValue('rate'), form.getFieldValue('fromCurrency'), form.getFieldValue('toCurrency'))}
             </div>
           )}
         </div>
@@ -586,6 +622,7 @@ const CurrencyExchange = () => {
         rowKey="_id"
         pagination={{ pageSize: 5 }}
         style={{ marginTop: 20 }}
+        scroll={{ x: "max-content" }}
       />
     </div>
   );

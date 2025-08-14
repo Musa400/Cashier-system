@@ -68,27 +68,35 @@ const NewTransaction = () => {
         }
     }
 
-    const searchByAccountNo = async () => {
-        try {
-            const obj = {
+   const searchByAccountNo = async () => {
+    try {
+        let obj; // دلته obj یو ځل تعریف کوو چې دواړو بلاکونو کې وکارول شي
+
+        if (userInfo.userType === "admin") {
+            obj = { accountNo }; // اډمین لپاره یوازې accountNo
+        } else {
+            obj = {
                 accountNo,
-                branch: userInfo?.branch
-            }
-            const httpReq = http();
-            const { data } = await httpReq.post(`/api/find-by-account`, obj);
-            if (data?.data) {
-                setAccountDetail(data.data)
-                // If customer has multiple currencies, reset selectedCurrency to null
-                setSelectedCurrency(null)
-            } else {
-                messageApi.warning("There is no record of this account");
-                setAccountDetail(null)
-                setSelectedCurrency(null)
-            }
-        } catch (error) {
-            messageApi.error("Unable to find account details")
+                branch: userInfo?.branch // کارکوونکي لپاره accountNo + branch
+            };
         }
+
+        const httpReq = http();
+        const { data } = await httpReq.post(`/api/find-by-account`, obj);
+
+        if (data?.data) {
+            setAccountDetail(data.data);
+            setSelectedCurrency(null); // که څو کرنسۍ وي نو کرنسۍ له سره ټاکو
+        } else {
+            messageApi.warning("There is no record of this account");
+            setAccountDetail(null);
+            setSelectedCurrency(null);
+        }
+    } catch (error) {
+        messageApi.error("Unable to find account details");
     }
+}
+
 
     return (
         <div>

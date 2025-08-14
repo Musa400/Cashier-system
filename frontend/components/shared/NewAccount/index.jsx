@@ -749,9 +749,9 @@ if (userInfo.userType === "admin") {
                                 </Button>
                         }
                     </Item>
-                </Form>
+                </Form>   
             </Modal>
-
+   
             
       {/* Transaction & Exchange History Modal */}
       <Modal
@@ -797,6 +797,7 @@ if (userInfo.userType === "admin") {
           {showingExchange ? (
             <Table
               loading={exchangeLoading}
+              scroll={{ x: "max-content" }}
               dataSource={exchangeData}
               rowKey="_id"
               pagination={{ pageSize: 5 }}
@@ -818,6 +819,7 @@ if (userInfo.userType === "admin") {
           ) : (
             <Table
               loading={transactionLoading}
+              scroll={{ x: "max-content" }}
               dataSource={transactionData}
               rowKey="_id"
               pagination={{ pageSize: 5 }}

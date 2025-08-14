@@ -4,6 +4,7 @@ const userSchema = require('../model/users.model');
 const Customer = require("../model/customer.model");
 const CashSummary = require("../model/CashierSummary");
 const Transactions = require("../model/transactionmodel");
+const { sendTransactionConfirmationEmail } = require('./email.controller');
 
 const getData = async (req, res, schema) => {
     try {
@@ -69,13 +70,39 @@ const createData = async (req, res, schema) => {
                 console.log("Final store record:", storeRecord);
                 
                 // Create the transaction first
-                const transaction = await new schema(data).save();
-                console.log("Transaction created:", transaction._id);
+                const newTransaction = new schema(data);
+                const savedTransaction = await newTransaction.save();
+                
+                // If customer exists and has email, send confirmation
+                if (customer && customer.email) {
+                    const emailData = {
+                        toEmail: customer.email.trim(),
+                        transactionData: {
+                            customerName: customer.fullname || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+                            accountNo: customer.accountNo,
+                            transactionType: data.transactionType,
+                            transactionAmount: data.transactionAmount,
+                            currency: data.currency || 'USD',
+                            refrence: data.refrence || 'N/A',
+                            currentBalance: data.currentBalance || 'N/A',
+                            createdAt: savedTransaction.createdAt
+                        }
+                    };
+                    
+                    // Send email in background (don't wait for response)
+                    sendTransactionConfirmationEmail(
+                        { body: emailData },
+                        { 
+                            status: () => ({ json: () => {} }),
+                            json: () => {}
+                        }
+                    );
+                }
                 
                 return res.status(200).json({
                     message: "Transaction created and store money updated successfully",
                     data: {
-                        transaction,
+                        transaction: savedTransaction,
                         storeBalance: storeRecord.amount
                     },
                     success: true
@@ -95,10 +122,41 @@ const createData = async (req, res, schema) => {
         }
 
         // Default create operation for non-bank transactions
-        const dbRes = await new schema(data).save();
+        const newRecord = new schema(data);
+        const savedRecord = await newRecord.save();
+        
+        // If customer exists and has email, send confirmation
+        if (schema.modelName === 'transaction') {
+            const customer = await Customer.findById(data.customerId);
+            if (customer && customer.email) {
+                const emailData = {
+                    toEmail: customer.email.trim(),
+                    transactionData: {
+                        customerName: customer.fullname || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+                        accountNo: customer.accountNo,
+                        transactionType: data.transactionType,
+                        transactionAmount: data.transactionAmount,
+                        currency: data.currency || 'USD',
+                        refrence: data.refrence || 'N/A',
+                        currentBalance: data.currentBalance || 'N/A',
+                        createdAt: savedRecord.createdAt
+                    }
+                };
+                
+                // Send email in background (don't wait for response)
+                sendTransactionConfirmationEmail(
+                    { body: emailData },
+                    { 
+                        status: () => ({ json: () => {} }),
+                        json: () => {}
+                    }
+                );
+            }
+        }
+        
         res.status(200).json({
             message: "Data inserted successfully",
-            data: dbRes,
+            data: savedRecord,
             success: true
         });
         
