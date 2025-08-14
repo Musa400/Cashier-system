@@ -314,6 +314,7 @@ const getBankCurrencyTotals = async (req, res) => {
 };
 
 
+
 const getTransactionSummary = async (req, res, schema) => {
     const { branch,accountNo } = req.query;
     let matchStage = {};
@@ -529,18 +530,68 @@ const getExchangeByCustomer = async  (req, res, schema) => {
      }
 }
 
+const getAccountTypeTotals = async (req, res, accountType) => {
+    try {
+        // First, get all accounts of the specified type
+        const accounts = await Customer.find({ 
+            accountType: accountType,
+            isActive: true 
+        });
+
+        // Calculate totals by currency
+        const totalsByCurrency = {};
+        
+        accounts.forEach(account => {
+            if (account.balances && Array.isArray(account.balances)) {
+                account.balances.forEach(balance => {
+                    const currency = balance.currency?.toUpperCase();
+                    if (currency) {
+                        if (!totalsByCurrency[currency]) {
+                            totalsByCurrency[currency] = 0;
+                        }
+                        // For expense accounts, we'll store as negative values
+                        const amount = accountType === 'expense' ? -Math.abs(balance.balance || 0) : Math.abs(balance.balance || 0);
+                        totalsByCurrency[currency] += amount;
+                    }
+                });
+            }
+        });
+
+        // Convert to array format for frontend
+        const result = Object.entries(totalsByCurrency).map(([currency, total]) => ({
+            currency,
+            total: parseFloat(total.toFixed(2)),
+            accountType
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: result,
+            message: `${accountType.charAt(0).toUpperCase() + accountType.slice(1)} accounts retrieved successfully`
+        });
+    } catch (error) {
+        console.error(`Error getting ${accountType} accounts:`, error);
+        res.status(500).json({
+            success: false,
+            message: `Error retrieving ${accountType} accounts`,
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getData,
     createData,
     updateData,
     deleteData,
     findByAccountNo,
+    getCurrencySummary,
+    getBankCurrencyTotals,
+    getAccountTypeTotals,
+    getTransactionSummary,
     getPaginatedTransactions,
     getDashboardStats,
     getStoreAccount,
-    getCurrencySummary,
-    getBankCurrencyTotals,
     getTransactionByCustomer,
-    getTransactionSummary,
     getExchangeByCustomer
-};
+}

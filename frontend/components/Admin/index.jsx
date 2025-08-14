@@ -32,6 +32,28 @@ const CurrencySummaryCard = () => {
     }
   );
 
+  // د earn ډیټا
+  const { data: earnData, error: earnError } = useSWR(
+    "/api/customers/earn-account",
+    fetchData,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 1200000,
+    }
+  );
+
+  // د expense ډیټا
+  const { data: expenseData, error: expenseError } = useSWR(
+    "/api/customers/expense-account",
+    fetchData,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 1200000,
+    }
+  );
+
   // Fetch transaction summary
   const { data: transactionSummary } = useSWR(
     "/api/transaction/summary",
@@ -45,6 +67,8 @@ const CurrencySummaryCard = () => {
 
   const loadingStore = !storeData && !storeError;
   const loadingBank = !bankData && !bankError;
+  const loadingEarn = !earnData && !earnError;
+  const loadingExpense = !expenseData && !expenseError;
 
   // د بانک ډیټا د بانک نوم له مخې ګروپ کول
   const [bankGroupedData, setBankGroupedData] = useState({});
@@ -87,15 +111,42 @@ const CurrencySummaryCard = () => {
     });
   }
 
-  // Store + Bank = Combined Totals
+  // د earn مجموعي پیسې
+  const earnTotals = {};
+  if (Array.isArray(earnData?.data)) {
+    earnData.data.forEach((item) => {
+      if (item.currency) {
+        earnTotals[item.currency] = (earnTotals[item.currency] || 0) + (item.total || 0);
+      }
+    });
+  }
+
+  // د expense مجموعي پیسې
+  const expenseTotals = {};
+  if (Array.isArray(expenseData?.data)) {
+    expenseData.data.forEach((item) => {
+      if (item.currency) {
+        // Expense is already stored as negative in the backend
+        expenseTotals[item.currency] = (expenseTotals[item.currency] || 0) + (item.total || 0);
+      }
+    });
+  }
+
+  // Store + Bank + Earn + Expense = Combined Totals
   const combinedTotals = {};
   const allCurrencies = new Set([
     ...Object.keys(storeTotals),
     ...Object.keys(bankTotals),
+    ...Object.keys(earnTotals),
+    ...Object.keys(expenseTotals)
   ]);
+
   allCurrencies.forEach((currency) => {
     combinedTotals[currency] =
-      (storeTotals[currency] || 0) + (bankTotals[currency] || 0);
+      (storeTotals[currency] || 0) + 
+      (bankTotals[currency] || 0) + 
+      (earnTotals[currency] || 0) + 
+      (expenseTotals[currency] || 0);
   });
 
   // Calculate total transactions
@@ -112,9 +163,9 @@ const CurrencySummaryCard = () => {
     <AdminLayout>
       <div className="space-y-6">
 
+      
 
-
-        <div className="flex flex-col gap-6 md:flex-row">
+        <div className="flex flex-col gap-6 md:flex-row p-8">
         {/* زه د خلکو پوروړی یم */}
 <Card
   title="زه د خلکو پوروړی یم"
@@ -345,76 +396,101 @@ const CurrencySummaryCard = () => {
 
 
 
-        {/* Store Detailed Cards */}
-        <div className="flex flex-col lg:flex-row gap-6 w-full m-7">
-          {/* 👤 Customer Money Card */}
-          <Card
-            title="👤 د مشتری پیسې"
-            className="rounded-2xl shadow-md w-full lg:w-1/2"
-            style={{ background: "linear-gradient(to bottom, #f5f3ff, #ffffff)" }}
-            headStyle={{ textAlign: "center", fontWeight: "bold", fontSize: 18 }}
-          >
-            {loadingStore ? (
-              <div className="text-center py-10">
-                <Spin size="large" />
-              </div>
-            ) : storeData.length === 0 ? (
-              <p className="text-center text-gray-500 py-6">هیڅ معلومات نشته</p>
-            ) : (
-              <div className="space-y-4">
-                {storeData
-                  .filter((item) => item.CustomerMoney > 0)
-                  .map((item, index) => (
-                    <div
-                      key={`customer-${index}`}
-                      className="flex justify-between items-center border-b pb-2"
-                    >
-                      <span className="text-sm text-gray-700 flex items-center gap-1">
-                        <UserOutlined /> {item.currency}
-                      </span>
-                      <Text className="font-semibold text-blue-600 text-base">
-                        {format(item.CustomerMoney)}
-                      </Text>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </Card>
+      {/* Store Detailed Cards */}
+<div className="flex flex-col lg:flex-row gap-6 w-full m-7">
+  {/* Earn & Expense Summary Card */}
+  <Card
+    title="💰 Earn & Expense Summary"
+    className="rounded-2xl shadow-lg border border-gray-100 w-full lg:w-2/3"
+    headStyle={{
+      fontSize: 18,
+      fontWeight: 600,
+      backgroundColor: "#f8fafc",
+    }}
+  >
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-100 text-gray-700">
+            <th className="py-2 px-4 border">Currency</th>
+            <th className="py-2 px-4 border text-green-600">Earn</th>
+            <th className="py-2 px-4 border text-red-600">Expense</th>
+            <th className="py-2 px-4 border text-blue-600">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allCurrencies.size > 0 ? (
+            Array.from(allCurrencies).map((currency) => {
+              const earn = earnTotals[currency] || 0;
+              const expense = Math.abs(expenseTotals[currency] || 0);
+              const balance = (earn || 0) - (expense || 0);
+              
+              return (
+                <tr key={`summary-${currency}`} className="hover:bg-gray-50">
+                  <td className="py-2 px-4 border font-medium">{currency}</td>
+                  <td className="py-2 px-4 border text-green-600 text-right">
+                    {format(earn)}
+                  </td>
+                  <td className="py-2 px-4 border text-red-600 text-right">
+                    {format(expense)}
+                  </td>
+                  <td 
+                    className={`py-2 px-4 border text-right font-medium ${
+                      balance >= 0 ? 'text-blue-600' : 'text-red-600'
+                    }`}
+                  >
+                    {format(balance)}
+                  </td>
+                </tr>
+              );
+            })
+          ) : (
+            <tr>
+              <td colSpan="4" className="py-4 text-center text-gray-500">
+                No data available
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </Card>
 
-          {/* 🏦 Owner Money Card */}
-          <Card
-            title="🏦 د څښتن پیسې"
-            className="rounded-2xl shadow-md w-full lg:w-1/2"
-            style={{ background: "linear-gradient(to bottom, #f0fdf4, #ffffff)" }}
-            headStyle={{ textAlign: "center", fontWeight: "bold", fontSize: 18 }}
-          >
-            {loadingStore ? (
-              <div className="text-center py-10">
-                <Spin size="large" />
-              </div>
-            ) : storeData.length === 0 ? (
-              <p className="text-center text-gray-500 py-6">هیڅ معلومات نشته</p>
-            ) : (
-              <div className="space-y-4">
-                {storeData
-                  .filter((item) => item.OwnerMoney > 0)
-                  .map((item, index) => (
-                    <div
-                      key={`owner-${index}`}
-                      className="flex justify-between items-center border-b pb-2"
-                    >
-                      <span className="text-sm text-gray-700 flex items-center gap-1">
-                        <BankOutlined /> {item.currency}
-                      </span>
-                      <Text className="font-semibold text-green-600 text-base">
-                        {format(item.OwnerMoney)}
-                      </Text>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </Card>
-        </div>
+  {/* 🏦 Owner Money Card */}
+  <Card
+    title="🏦 د څښتن پیسې"
+    className="rounded-2xl shadow-md w-full lg:w-1/3"
+    style={{ background: "linear-gradient(to bottom, #f0fdf4, #ffffff)" }}
+    headStyle={{ textAlign: "center", fontWeight: "bold", fontSize: 18 }}
+  >
+    {loadingStore ? (
+      <div className="text-center py-10">
+        <Spin size="large" />
+      </div>
+    ) : storeData.length === 0 ? (
+      <p className="text-center text-gray-500 py-6">هیڅ معلومات نشته</p>
+    ) : (
+      <div className="space-y-4">
+        {storeData
+          .filter((item) => item.OwnerMoney > 0)
+          .map((item, index) => (
+            <div
+              key={`owner-${index}`}
+              className="flex justify-between items-center border-b pb-2"
+            >
+              <span className="text-sm text-gray-700 flex items-center gap-1">
+                <BankOutlined /> {item.currency}
+              </span>
+              <Text className="font-semibold text-green-600 text-base">
+                {format(item.OwnerMoney)}
+              </Text>
+            </div>
+          ))}
+      </div>
+    )}
+  </Card>
+</div>
+
 
       </div>
     </AdminLayout>

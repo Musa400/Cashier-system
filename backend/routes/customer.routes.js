@@ -11,8 +11,17 @@ router.get('/',(req,res)=>{
 router.get('/store-account', (req, res) => {
     controller.getCurrencySummary(req, res);
 });
+
 router.get('/bank-account', (req, res) => {
     controller.getBankCurrencyTotals(req, res);
+});
+
+router.get('/earn-account', (req, res) => {
+    controller.getAccountTypeTotals(req, res, 'earn');
+});
+
+router.get('/expense-account', (req, res) => {
+    controller.getAccountTypeTotals(req, res, 'expense');
 });
 
 router.post('/',(req,res)=>{

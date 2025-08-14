@@ -413,10 +413,10 @@ if (userInfo.userType === "admin") {
                 })?.balance || 0;
                 
                 const isNegative = Number(balance) < 0;
-              const displayValue = Math.abs(Number(balance)).toLocaleString(undefined, { 
-    minimumFractionDigits: 0, 
-    maximumFractionDigits: 2 
-});
+                const displayValue = Math.abs(Number(balance)).toLocaleString(undefined, { 
+                    minimumFractionDigits: 0, 
+                    maximumFractionDigits: 2 
+                });
                 
                 return (
                     <div className="text-right">
