@@ -46,7 +46,7 @@ app.use(cors(corsOptions));
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
-app.use(cors());
+
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
