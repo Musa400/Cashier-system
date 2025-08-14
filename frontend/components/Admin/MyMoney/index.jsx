@@ -140,11 +140,15 @@ const AdminProperty = () => {
       key: "personName",
     },
     ...allCurrencies.map((cur) => ({
-      title: cur.display,
-      dataIndex: cur.code,
-      key: cur.code,
-      render: (val) => val || "-", // Show "-" if no value
-    })),
+    title: cur.display,
+    dataIndex: cur.code,
+    key: cur.code,
+    render: (val) =>
+      val !== undefined && val !== null
+        ? Number(val).toLocaleString() // Add commas here
+        : "-", // Show "-" if no value
+  })),
+
   ];
 
   return (
