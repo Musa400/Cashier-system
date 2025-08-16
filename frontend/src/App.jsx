@@ -20,6 +20,7 @@ const AdminTransaction = lazy(()=>import('../components/Admin/Transaction'))
 const AdminRate = lazy(()=>import('../components/Admin/UpdateRate/index'))
 const CustomerDashboard = lazy(()=>import('../components/Customer/index'))
 const CustomerTransaction = lazy(()=>import('../components/Customer/Transaction/index'))
+const CustomerExchange = lazy(()=>import('../components/Customer/exchange/index'))
 const AdminProperty = lazy(()=>import('../components/Admin/MyMoney/index'))
 const PageNotFound = lazy(()=>import("../components/PageNotFound"))
 
@@ -68,6 +69,7 @@ const App = () => {
         </Guard>}>
           <Route index element={<CustomerDashboard />} />
           <Route path='transaction' element={<CustomerTransaction />} />
+          <Route path='exchange' element={<CustomerExchange />} />
           <Route path='*' element={<PageNotFound />} />
         </Route>
         {/* End customer related routes */}

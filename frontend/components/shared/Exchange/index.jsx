@@ -22,6 +22,7 @@ const CurrencyExchange = () => {
   const userInfo = JSON.parse(sessionStorage.getItem("userInfo"))
 
   const columns = [
+    { title: 'حساب شمیره', dataIndex: 'accountNo', key: 'accountNo' },
     { title: ' مشتری نوم', dataIndex: 'customerName', key: 'customerName' },
     { title: 'له کوم اسعار څخه  ', dataIndex: 'fromCurrency', key: 'fromCurrency' },
     { title: 'کوم اسعار ته', dataIndex: 'toCurrency', key: 'toCurrency' },
@@ -261,6 +262,7 @@ const CurrencyExchange = () => {
       // Prepare the exchange data with the correct rate format
       const exchangeData = {
         customerId: selectedCustomer._id,
+        accountNo: selectedCustomer.accountNo, // Add account number here
         customerName: selectedCustomer.fullname || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim(),
         customerEmail: selectedCustomer.email ? selectedCustomer.email.trim() : null,
         fromCurrency: values.fromCurrency,

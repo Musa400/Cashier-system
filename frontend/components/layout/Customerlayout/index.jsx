@@ -10,6 +10,7 @@ import {
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    SyncOutlined,
     UploadOutlined,
     UserOutlined,
     VideoCameraOutlined,
@@ -38,6 +39,11 @@ const CustomerLayout = ({ children }) => {
             key: '/customer/transaction',
             icon: <BranchesOutlined />,
             label: <Link to='/customer/transaction'> Transactions</Link>,
+        },
+        {
+            key: '/customer/exchange',
+            icon: <SyncOutlined />,
+            label: <Link to='/customer/exchange'> exchange</Link>,
         },
          {
             key: '/customer/logout',

@@ -313,6 +313,52 @@ const getBankCurrencyTotals = async (req, res) => {
     }
 };
 
+const getPersonCurrencyByAccountNo = async (req, res) => {
+    try {
+        const { accountNo } = req.query;
+
+        // First, let's find the customer document directly
+        const customer = await Customer.findOne({ accountNo: Number(accountNo) });
+        console.log('Found customer document:', JSON.stringify({
+            accountNo: customer?.accountNo,
+            accountType: customer?.accountType,
+            hasBalances: customer?.balances?.length > 0,
+            balances: customer?.balances
+        }, null, 2));
+
+        // Match conditions - include both 'person' and undefined account types
+        const matchConditions = {
+            $or: [
+                { accountType: "person" },
+                { accountType: { $exists: false } },
+                { accountType: null }
+            ],
+            accountNo: Number(accountNo)
+        };
+
+        console.log('Searching for accounts with conditions:', JSON.stringify(matchConditions, null, 2));
+
+        const result = await Customer.aggregate([
+            { $match: matchConditions },
+            { $unwind: "$balances" },
+            {
+                $project: {
+                    fullname: 1,
+                    accountNo: 1,
+                    currency: "$balances.currency",
+                    balance: "$balances.balance"
+                }
+            }
+        ]);
+
+        console.log('Aggregation result:', JSON.stringify(result, null, 2));
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Error in getPersonCurrencyByAccountNo:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 
 
 const getTransactionSummary = async (req, res, schema) => {
@@ -511,24 +557,54 @@ const getTransactionByCustomer = async  (req, res, schema) => {
         });
      }
 }
-const getExchangeByCustomer = async  (req, res, schema) => {
-    const {customerId} = req.params;
-    try{
-        const exchange = await schema.find({ customerId}).sort({createdAt: -1});
+
+const getExchangeByCustomer = async (req, res, schema) => {
+    const { customerId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const skip = (page - 1) * pageSize;
+
+    try {
+        console.log(`Fetching exchanges for customer ${customerId}, page ${page}, pageSize ${pageSize}`);
+        
+        // Get total count for pagination
+        const total = await schema.countDocuments({ customerId });
+        
+        // Fetch paginated data
+        const exchanges = await schema.find({ customerId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        console.log(`Found ${exchanges.length} exchanges out of ${total}`);
+        
         res.status(200).json({
             message: "Customer Exchange history fetched!",
-            data: exchange,
+            data: exchanges,
+            pagination: {
+                total,
+                page,
+                pageSize,
+                totalPages: Math.ceil(total / pageSize)
+            },
             success: true
-
-        })  
-     } catch (error){
+        });
+    } catch (error) {
+        console.error("Error in getExchangeByCustomer:", {
+            message: error.message,
+            stack: error.stack,
+            customerId,
+            page,
+            pageSize
+        });
+        
         res.status(500).json({
             message: "Internal server error",
             success: false,
-            error
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
-     }
-}
+    }
+};
 
 const getAccountTypeTotals = async (req, res, accountType) => {
     try {
@@ -593,5 +669,7 @@ module.exports = {
     getDashboardStats,
     getStoreAccount,
     getTransactionByCustomer,
-    getExchangeByCustomer
+    getExchangeByCustomer,
+    getPersonCurrencyByAccountNo,
+    
 }

@@ -20,9 +20,14 @@ router.get('/earn-account', (req, res) => {
     controller.getAccountTypeTotals(req, res, 'earn');
 });
 
+
 router.get('/expense-account', (req, res) => {
     controller.getAccountTypeTotals(req, res, 'expense');
 });
+router.get('/get-person-balances', (req, res) => {
+    controller.getPersonCurrencyByAccountNo(req, res);
+});
+
 
 router.post('/',(req,res)=>{
     controller.createData(req,res,customerSchema)

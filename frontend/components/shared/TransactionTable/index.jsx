@@ -63,6 +63,12 @@ const TransactionTable = ({ query = {} }) => {
         dataIndex: "transactionType", 
         key: "transactionType" 
     },
+    {
+          title: "currency", 
+        dataIndex: "currency", 
+        key: "currency" 
+    },
+
     { 
         title: "Amount", 
         dataIndex: "transactionAmount", 

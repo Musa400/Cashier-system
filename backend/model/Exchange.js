@@ -7,6 +7,7 @@ const ExchangeSchema = new mongoose.Schema({
     ref: 'Customer',
     required: true 
   },
+  accountNo : Number,
   customerName: { 
     type: String,
     required: true 

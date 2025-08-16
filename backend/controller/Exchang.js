@@ -14,11 +14,12 @@ exports.createExchange = async (req, res) => {
       amount, 
       rate, 
       createdBy,
-      customerEmail 
+      customerEmail,
+      accountNo 
     } = req.body;
 
     // Validate required fields
-    if (!customerId || !customerName || !fromCurrency || !toCurrency || !amount || !rate) {
+    if (!customerId || !customerName || !fromCurrency || !toCurrency || !amount || !rate || !accountNo ) {
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields' 
@@ -65,12 +66,14 @@ exports.createExchange = async (req, res) => {
     // Create the exchange record
     const exchange = new Exchange({
       customerId,
+      accountNo,
       customerName,
       fromCurrency,
       toCurrency,
       amount: amountNum,
       rate: rateNum,
       convertedAmount: convertedAmount,
+      
       createdBy: createdBy || 'System',
       date: new Date()
     });
